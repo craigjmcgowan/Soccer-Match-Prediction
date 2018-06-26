@@ -1,4 +1,5 @@
 library(tidyverse)
+library(nnet)
 
 # Load data
 load("Data/USA.Rdata")
@@ -62,7 +63,7 @@ recent_form_spec <- function(df, num_weeks) {
 
 # Create dataset with total goals scored and goals against
 # for each team to that point
-goal_sum <- usa %>%
+cum_goal_sum <- usa %>%
   select(date, season, "team" = home, "goals_for" = hg, 
          "goals_against" = ag) %>%
   bind_rows(usa %>%
@@ -75,52 +76,185 @@ goal_sum <- usa %>%
   ungroup() %>%
   select(date, season, team, goals_for_lag, goals_against_lag) 
 
+# Recent form - 6 matches
+usa_6matches <- recent_form(usa, 6)
+
+# Recent form home/away goals - 6 matches
+usa_home_away <- recent_form_spec(usa, 6)
 
 # Join previous goal ratios to active match results
 usa_results <- usa %>%
-  # Join home goal ratio
-  left_join(goal_sum %>%
-              rename("home_for_lag" = goals_for_lag, 
-                     "home_against_lag" = goals_against_lag),
+  mutate(res = factor(res)) %>%
+  # Join cumulative home goals
+  left_join(cum_goal_sum %>%
+              rename("cum_home_for_lag" = goals_for_lag, 
+                     "cum_home_against_lag" = goals_against_lag),
             by = c("date", "season", "home" = "team")) %>%
-  # Join away goal ratio
-  left_join(goal_sum %>%
-              rename("visitor_for_lag" = goals_for_lag, 
-                     "visitor_against_lag" = goals_against_lag),
-            by = c("date", "season", "away" = "team"))
+  # Join cumulative away goals
+  left_join(cum_goal_sum %>%
+              rename("cum_away_for_lag" = goals_for_lag, 
+                     "cum_away_against_lag" = goals_against_lag),
+            by = c("date", "season", "away" = "team")) %>%
+  # Join recent form home goals
+  left_join(usa_6matches %>%
+              select("recent_home_for_lag" = goals_for_lag, 
+                     "recent_home_against_lag" = goals_against_lag,
+                     date, season, team),
+            by = c("date", "season", "home" = "team")) %>%
+  # Join recent form away goals
+  left_join(usa_6matches %>%
+              select("recent_away_for_lag" = goals_for_lag, 
+                     "recent_away_against_lag" = goals_against_lag,
+                     date, season, team),
+            by = c("date", "season", "away" = "team")) %>%
+  # Join recent form home goals by location
+  left_join(usa_home_away %>%
+              select("home_homefor_lag" = home_goals_for_lag, 
+                     "home_homeagainst_lag" = home_goals_against_lag,
+                     "home_awayfor_lag" = away_goals_for_lag,
+                     "home_awayagainst_lag" = away_goals_against_lag,
+                     date, season, team),
+            by = c("date", "season", "home" = "team")) %>%
+  # Join recent form away goals by location
+  left_join(usa_home_away %>%
+              select("away_awayfor_lag" = away_goals_for_lag, 
+                     "away_awayagainst_lag" = away_goals_against_lag,
+                     "away_homefor_lag" = home_goals_for_lag,
+                     "away_homeagainst_lag" = home_goals_against_lag,
+                     date, season, team),
+            by = c("date", "season", "away" = "team")) %>%
+  # Remove 2018 season in progress
+  filter(season != 2018)
 
-# Regression
-away_reg <- glm(out ~ home_for_lag + home_against_lag + visitor_for_lag + 
-                  visitor_against_lag,
-                data = usa_results %>%
-                  mutate(out = ifelse(res == "A", 1, 0)))
+# Simple logistic regression
+logistic_error <- tibble()
+for (this_season in unique(usa_cumsum_results$season)) {
+  
+  # Split data into train and test sets
+  train <- filter(usa_cumsum_results, season != this_season)
+  test <- filter(usa_cumsum_results, season == this_season)
+  
+  away_reg <- glm(out ~ home_for_lag + home_against_lag + visitor_for_lag + 
+                    visitor_against_lag,
+                  data = mutate(train, out = ifelse(res == "A", 1, 0)),
+                  family = "binomial")
+  draw_reg <- glm(out ~ home_for_lag + home_against_lag + visitor_for_lag + 
+                    visitor_against_lag,
+                  data = mutate(train, out = ifelse(res == "D", 1, 0)),
+                  family = "binomial")
+  home_reg <- glm(out ~ home_for_lag + home_against_lag + visitor_for_lag + 
+                    visitor_against_lag,
+                  data = mutate(train, out = ifelse(res == "H", 1, 0)),
+                  family = "binomial")
+  
+  # Predicted output
+  error <- train %>%
+    mutate(pred_home = predict(home_reg, ., type = "response"),
+           pred_away = predict(away_reg, ., type = "response"),
+           pred_draw = predict(draw_reg, ., type = "response"),
+           pred_result = case_when(
+             pred_home > pred_away & pred_home > pred_draw ~ "H",
+             pred_away > pred_home & pred_away > pred_draw ~ "A",
+             pred_draw > pred_home & pred_draw > pred_home ~ "D",
+             TRUE ~ NA_character_
+           )) %>%
+    summarize(season_out = this_season,
+              train_per = sum(pred_result == res) / n()) %>%
+    # Test error
+    left_join(test %>%
+                mutate(pred_home = predict(home_reg, ., type = "response"),
+                       pred_away = predict(away_reg, ., type = "response"),
+                       pred_draw = predict(draw_reg, ., type = "response"),
+                       pred_result = case_when(
+                         pred_home > pred_away & pred_home > pred_draw ~ "H",
+                         pred_away > pred_home & pred_away > pred_draw ~ "A",
+                         pred_draw > pred_home & pred_draw > pred_home ~ "D",
+                         TRUE ~ NA_character_
+                       )) %>%
+                summarize(season_out = this_season,
+                          test_per = sum(pred_result == res) / n()),
+              by = "season_out")
 
-draw_reg <- glm(out ~ home_for_lag + home_against_lag + visitor_for_lag + 
-                  visitor_against_lag,
-                data = usa_results %>%
-                  mutate(out = ifelse(res == "D", 1, 0)))
+  # Attach results to summary doc
+  logistic_error <- bind_rows(logistic_error, error)
+}
 
-home_reg <- glm(out ~ home_for_lag + home_against_lag + visitor_for_lag + 
-                  visitor_against_lag,
-                data = usa_results %>%
-                  mutate(out = ifelse(res == "H", 1, 0)))
+mean(logistic_error$train_per)
+mean(logistic_error$test_per)
+mean(nnet_error$train_per)
+mean(nnet_error$test_per)
 
-# Predicted output
-usa_predict <- usa_results %>%
-  mutate(pred_home = predict(home_reg, ., type = "response"),
-         pred_away = predict(away_reg, ., type = "response"),
-         pred_draw = predict(draw_reg, ., type = "response"),
-         pred_home_odds = 1/pred_home,
-         pred_away_odds = 1/pred_away,
-         pred_draw_odds = 1/pred_draw,
-         pred_result = case_when(
-           pred_home > pred_away & pred_home > pred_draw ~ "H",
-           pred_away > pred_home & pred_away > pred_draw ~ "A",
-           pred_draw > pred_home & pred_draw > pred_home ~ "D",
-           TRUE ~ NA_character_
-           )
-         ) %>%
-  filter(!is.na(pred_result))
+
+# Simple neural network
+nnet_error <- tibble()
+for (this_season in unique(usa_cumsum_results$season)) {
+  
+  # Split data into train and test sets
+  train <- filter(usa_cumsum_results, season != this_season)
+  test <- filter(usa_cumsum_results, season == this_season)
+
+  nnet <- nnet(res ~ home_for_lag + home_against_lag + visitor_for_lag + 
+                 visitor_against_lag,
+               data = train, size = 4, maxit = 200)
+  
+  # Predicted output
+  error <- train %>%
+    mutate(pred_result = predict(nnet, ., type = "class")) %>%
+    summarize(season_out = this_season,
+              train_per = sum(pred_result == res) / n()) %>%
+    # Test error
+    left_join(test %>%
+                mutate(pred_result = predict(nnet, ., type = "class")) %>%
+                summarize(season_out = this_season,
+                          test_per = sum(pred_result == res) / n()),
+              by = "season_out")
+  
+  # Attach results to summary doc
+  nnet_error <- bind_rows(nnet_error, error)
+}
+
+# Test different numbers of neurons in neural network
+# Simple neural network
+nnet_error <- tibble()
+for (i in 3:25) {
+  season_error <- tibble()
+  for (this_season in unique(usa_cumsum_results$season)) {
+  
+    # Split data into train and test sets
+    train <- filter(usa_cumsum_results, season != this_season)
+    test <- filter(usa_cumsum_results, season == this_season)
+    
+    nnet <- nnet(res ~ home_for_lag + home_against_lag + visitor_for_lag + 
+                   visitor_against_lag,
+                 data = train, size = 4, maxit = 200)
+    
+    # Predicted output
+    error <- train %>%
+      mutate(pred_result = predict(nnet, ., type = "class")) %>%
+      summarize(season_out = this_season,
+                train_per = sum(pred_result == res) / n()) %>%
+      # Test error
+      left_join(test %>%
+                  mutate(pred_result = predict(nnet, ., type = "class")) %>%
+                  summarize(season_out = this_season,
+                            test_per = sum(pred_result == res) / n()),
+                by = "season_out")
+    
+    # Attach results to summary doc
+    season_error <- bind_rows(season_error, error)
+ 
+  }
+  nnet_error <- season_error %>%
+    summarize(size = i,
+              avg_train = mean(train_per),
+              avg_test = mean(test_per)) %>%
+    bind_rows(nnet_error, .)
+  
+}
+
+ggplot(data = nnet_error) +
+  geom_line(aes(x = size, y = avg_train), color = "red") +
+  geom_line(aes(x = size, y = avg_test), color = "blue")
 
 usa_predict %>%
   filter(!is.na(pred_home_odds), pred_home_odds < avgh) %>%
@@ -139,11 +273,13 @@ usa_predict %>%
 
 
 
+
 # Recent form - past 6 matches ------------------------------------------------
-usa_6matches <- recent_form(usa, 8)
+
 
 # Join previous goal ratios to active match results
 usa_6match_results <- usa %>%
+  mutate(res = factor(res)) %>%
   # Join home goal ratio
   left_join(usa_6matches %>%
               select("home_for_lag" = goals_for_lag, 
@@ -155,7 +291,8 @@ usa_6match_results <- usa %>%
               select("visitor_for_lag" = goals_for_lag, 
                      "visitor_against_lag" = goals_against_lag,
                      date, season, team),
-            by = c("date", "season", "away" = "team"))
+            by = c("date", "season", "away" = "team")) %>%
+  na.omit()
 
 ggplot(usa_6match_results, aes(x = visitor_for_lag, y = visitor_against_lag, color = res)) +
   geom_jitter()
@@ -176,6 +313,12 @@ home_reg <- glm(out ~ home_for_lag + home_against_lag + visitor_for_lag +
                 data = usa_6match_results %>%
                   mutate(out = ifelse(res == "H", 1, 0)))
 
+match6_nnet <- nnet(res ~ home_for_lag + home_against_lag + visitor_for_lag + 
+                      visitor_against_lag,
+                    data = usa_6match_results, size = 6, maxit = 200)
+
+table()
+
 # Predicted output
 usa_6match_predict <- usa_6match_results %>%
   mutate(pred_home = predict(home_reg, ., type = "response"),
@@ -189,15 +332,15 @@ usa_6match_predict <- usa_6match_results %>%
            pred_away > pred_home & pred_away > pred_draw ~ "A",
            pred_draw > pred_home & pred_draw > pred_home ~ "D",
            TRUE ~ NA_character_
-         )
-  ) %>%
+         ),
+         nn_pred_result = predict(match6_nnet, ., type = "class")) %>%
   filter(!is.na(pred_home_odds))
 
 # Matches classfied correctly
-usa_predict %>%
-  group_by(pred_result) %>%
+usa_6match_predict %>%
+  group_by(nn_pred_result) %>%
   summarize(n = n(),
-            per_acc = sum(res == pred_result) / n)
+            per_acc = sum(res == nn_pred_result) / n)
 
 
 
@@ -247,6 +390,7 @@ usa_home_away <- recent_form_spec(usa, 6)
 
 # Join previous goal ratios to active match results
 usa_home_away_results <- usa %>%
+  mutate(res = factor(res)) %>%
   # Join home goal ratios
   left_join(usa_home_away %>%
               select("home_homefor_lag" = home_goals_for_lag, 
@@ -262,10 +406,9 @@ usa_home_away_results <- usa %>%
                      "away_homefor_lag" = home_goals_for_lag,
                      "away_homeagainst_lag" = home_goals_against_lag,
                      date, season, team),
-            by = c("date", "season", "away" = "team"))
+            by = c("date", "season", "away" = "team")) %>%
+  na.omit()
 
-ggplot(usa_6match_results, aes(x = visitor_for_lag, y = visitor_against_lag, color = res)) +
-  geom_jitter()
 
 # Regression
 away_reg <- glm(out ~ home_homefor_lag + home_homeagainst_lag +
@@ -299,6 +442,16 @@ summary(home_reg)
 
 # Home goals for and against @ home, away goals for and against @ home sig
 
+# Single layer neural network
+match6spec_nnet <- nnet(res ~ home_homefor_lag + home_homeagainst_lag +
+                          home_awayfor_lag + home_awayagainst_lag +
+                          away_awayfor_lag + away_awayagainst_lag +
+                          away_homefor_lag + away_homeagainst_lag,
+                        data = usa_home_away_results, size = 10, maxit = 500)
+
+table(predict(match6spec_nnet, usa_home_away_results, type = "class"))
+
+
 # Predicted output
 usa_home_away_predict <- usa_home_away_results %>%
   mutate(pred_home = predict(home_reg, ., type = "response"),
@@ -312,18 +465,20 @@ usa_home_away_predict <- usa_home_away_results %>%
            pred_away > pred_home & pred_away > pred_draw ~ "A",
            pred_draw > pred_home & pred_draw > pred_home ~ "D",
            TRUE ~ NA_character_
-         )
+         ),
+         nn_pred_result = predict(match6spec_nnet, ., type = "class")
   ) %>%
   filter(!is.na(pred_home_odds))
 
-table(usa_home_away_predict$pred_result)
+table(usa_home_away_predict$pred_result, 
+      usa_home_away_predict$nn_pred_result)
 
 
 # Matches classfied correctly
 usa_home_away_predict %>%
-  group_by(pred_result) %>%
+  group_by(nn_pred_result) %>%
   summarize(n = n(),
-            per_acc = sum(res == pred_result) / n)
+            per_acc = sum(res == nn_pred_result) / n)
 
 
 
