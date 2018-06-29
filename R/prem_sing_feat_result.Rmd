@@ -253,7 +253,7 @@ prem_recent_shots <- prem_combined %>%
 
 # Create dataset of recent goal form for each team throughout season
 prem_recent_shots_target <- prem_combined %>%
-  filter(!is.na(hs)) %>%
+  filter(!is.na(hst)) %>%
   select(date, season, "team" = home, "targets_for" = hst, 
            "targets_against" = ast) %>%
     bind_rows(prem_combined %>%
@@ -284,7 +284,7 @@ prem_recent_shots_target <- prem_combined %>%
 
 # Create dataset of recent goal form for each team throughout season
 prem_recent_corners <- prem_combined %>%
-  filter(!is.na(hs)) %>%
+  filter(!is.na(hc)) %>%
   select(date, season, "team" = home, "corners_for" = hc, 
            "corners_against" = ac) %>%
     bind_rows(prem_combined %>%
@@ -312,6 +312,99 @@ prem_recent_corners <- prem_combined %>%
          cornersagainst9 = recent_form(corners_against, 9)) %>%
   ungroup() %>%
   select(-corners_for, -corners_against)
+
+# Create dataset of recent fouls for each team throughout season
+prem_recent_fouls <- prem_combined %>%
+  filter(!is.na(hf)) %>%
+  select(date, season, "team" = home, "fouls_for" = hf, 
+           "fouls_against" = af) %>%
+    bind_rows(prem_combined %>%
+                select(date, season, "team" = away,
+                       "fouls_for" = af, "fouls_against" = hf)) %>%
+  group_by(season, team) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(foulsfor1 = recent_form(fouls_for, 1),
+         foulsfor2 = recent_form(fouls_for, 2),
+         foulsfor3 = recent_form(fouls_for, 3),
+         foulsfor4 = recent_form(fouls_for, 4),
+         foulsfor5 = recent_form(fouls_for, 5),
+         foulsfor6 = recent_form(fouls_for, 6),
+         foulsfor7 = recent_form(fouls_for, 7),
+         foulsfor8 = recent_form(fouls_for, 8),
+         foulsfor9 = recent_form(fouls_for, 9), 
+         foulsagainst1 = recent_form(fouls_against, 1),
+         foulsagainst2 = recent_form(fouls_against, 2),
+         foulsagainst3 = recent_form(fouls_against, 3),
+         foulsagainst4 = recent_form(fouls_against, 4),
+         foulsagainst5 = recent_form(fouls_against, 5),
+         foulsagainst6 = recent_form(fouls_against, 6),
+         foulsagainst7 = recent_form(fouls_against, 7),
+         foulsagainst8 = recent_form(fouls_against, 8),
+         foulsagainst9 = recent_form(fouls_against, 9)) %>%
+  ungroup() %>%
+  select(-fouls_for, -fouls_against)
+
+# Create dataset of recent offsides for each team throughout season
+prem_recent_offsides <- prem_combined %>%
+  filter(!is.na(ho)) %>%
+  select(date, season, "team" = home, "offsides_for" = ho, 
+           "offsides_against" = ao) %>%
+    bind_rows(prem_combined %>%
+                select(date, season, "team" = away,
+                       "offsides_for" = ao, "offsides_against" = ho)) %>%
+  group_by(season, team) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(offsidesfor1 = recent_form(offsides_for, 1),
+         offsidesfor2 = recent_form(offsides_for, 2),
+         offsidesfor3 = recent_form(offsides_for, 3),
+         offsidesfor4 = recent_form(offsides_for, 4),
+         offsidesfor5 = recent_form(offsides_for, 5),
+         offsidesfor6 = recent_form(offsides_for, 6),
+         offsidesfor7 = recent_form(offsides_for, 7),
+         offsidesfor8 = recent_form(offsides_for, 8),
+         offsidesfor9 = recent_form(offsides_for, 9), 
+         offsidesagainst1 = recent_form(offsides_against, 1),
+         offsidesagainst2 = recent_form(offsides_against, 2),
+         offsidesagainst3 = recent_form(offsides_against, 3),
+         offsidesagainst4 = recent_form(offsides_against, 4),
+         offsidesagainst5 = recent_form(offsides_against, 5),
+         offsidesagainst6 = recent_form(offsides_against, 6),
+         offsidesagainst7 = recent_form(offsides_against, 7),
+         offsidesagainst8 = recent_form(offsides_against, 8),
+         offsidesagainst9 = recent_form(offsides_against, 9)) %>%
+  ungroup() %>%
+  select(-offsides_for, -offsides_against)
+
+# Create dataset of recent offsides for each team throughout season
+prem_recent_ycs <- prem_combined %>%
+  filter(!is.na(hy)) %>%
+  select(date, season, "team" = home, "yc_for" = hy, 
+           "yc_against" = ay) %>%
+    bind_rows(prem_combined %>%
+                select(date, season, "team" = away,
+                       "yc_for" = ay, "yc_against" = hy)) %>%
+  group_by(season, team) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(ycfor1 = recent_form(yc_for, 1),
+         ycfor2 = recent_form(yc_for, 2),
+         ycfor3 = recent_form(yc_for, 3),
+         ycfor4 = recent_form(yc_for, 4),
+         ycfor5 = recent_form(yc_for, 5),
+         ycfor6 = recent_form(yc_for, 6),
+         ycfor7 = recent_form(yc_for, 7),
+         ycfor8 = recent_form(yc_for, 8),
+         ycfor9 = recent_form(yc_for, 9), 
+         ycagainst1 = recent_form(yc_against, 1),
+         ycagainst2 = recent_form(yc_against, 2),
+         ycagainst3 = recent_form(yc_against, 3),
+         ycagainst4 = recent_form(yc_against, 4),
+         ycagainst5 = recent_form(yc_against, 5),
+         ycagainst6 = recent_form(yc_against, 6),
+         ycagainst7 = recent_form(yc_against, 7),
+         ycagainst8 = recent_form(yc_against, 8),
+         ycagainst9 = recent_form(yc_against, 9)) %>%
+  ungroup() %>%
+  select(-yc_for, -yc_against)
 
 ```
 
@@ -378,5 +471,50 @@ single_recent_model(prem_recent_corners) %>%
 Using logistic regression, this section evaluates what timeline of recent shots on target best predicts results, taking into account all shorter measures of recent form. For example, the model of 5-match recent shots also includes measures of 3-match and 4-match recent shots.
 ```{r multiple lags same model corners}
 multi_recent_model(prem_recent_corners) %>%
+  pander(split.cells = 15)
+```
+
+# Recent fouls
+Using logistic regression, look at what timeline of recent fouls best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
+```{r recent fouls form}
+single_recent_model(prem_recent_fouls) %>%
+  pander(split.cells = 15)
+
+```
+
+## Various timelines of recent fouls - cumulative measures
+Using logistic regression, this section evaluates what timeline of recent fouls best predicts results, taking into account all shorter measures of recent form. For example, the model of 5-match recent fouls also includes measures of 3-match and 4-match recent fouls
+```{r multiple lags same model fouls}
+multi_recent_model(prem_recent_fouls) %>%
+  pander(split.cells = 15)
+```
+
+# Recent Offsides
+Using logistic regression, look at what timeline of recent offsides best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
+```{r recent offsides form}
+single_recent_model(prem_recent_offsides) %>%
+  pander(split.cells = 15)
+
+```
+
+## Various timelines of recent offsides - cumulative measures
+Using logistic regression, this section evaluates what timeline of recent offsides best predicts results, taking into account all shorter measures of recent form. For example, the model of 5-match recent offsides also includes measures of 3-match and 4-match recent offsides
+```{r multiple lags same model offsides}
+multi_recent_model(prem_recent_offsides) %>%
+  pander(split.cells = 15)
+```
+
+# Recent yellow cards
+Using logistic regression, look at what timeline of recent yellow cards best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
+```{r recent yc form}
+single_recent_model(prem_recent_ycs) %>%
+  pander(split.cells = 15)
+
+```
+
+## Various timelines of recent yellow cards - cumulative measures
+Using logistic regression, this section evaluates what timeline of recent yellow cards best predicts results, taking into account all shorter measures of recent form. For example, the model of 5-match recent offsides also includes measures of 3-match and 4-match recent yellow cards.
+```{r multiple lags same model yc}
+multi_recent_model(prem_recent_ycs) %>%
   pander(split.cells = 15)
 ```
