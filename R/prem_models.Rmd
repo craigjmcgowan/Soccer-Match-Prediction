@@ -1,0 +1,751 @@
+---
+title: "Premier League Model Match Prediction"
+author: "Craig McGowan"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(pander)
+library(nnet)
+
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_knit$set(root.dir = "../")
+```
+
+```{r functions}
+# Recent form for a particular stat
+recent_form <- function(var, num_weeks) {
+
+  lag(zoo::rollsum(var, num_weeks, na.pad = TRUE, align = "right"), 1)
+ 
+}
+```
+
+
+```{r read in data and set up summary datasets}
+# Read in data
+load("Data/prem.Rdata")
+
+prem_combined <- mutate(prem_combined, res = as.factor(res))
+
+# Create dataset of recent goal form for each team throughout season
+prem_recent_goals <- prem_combined %>%
+  select(date, season, "team" = home, "goals_for" = hg, 
+           "goals_against" = ag) %>%
+    bind_rows(prem_combined %>%
+                select(date, season, "team" = away,
+                       "goals_for" = ag, "goals_against" = hg)) %>%
+  group_by(season, team) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(goalsfor1 = recent_form(goals_for, 1),
+         goalsfor2 = recent_form(goals_for, 2),
+         goalsfor3 = recent_form(goals_for, 3),
+         goalsfor4 = recent_form(goals_for, 4),
+         goalsfor5 = recent_form(goals_for, 5),
+         goalsfor6 = recent_form(goals_for, 6),
+         goalsfor7 = recent_form(goals_for, 7),
+         goalsfor8 = recent_form(goals_for, 8),
+         goalsfor9 = recent_form(goals_for, 9), 
+         goalsagainst1 = recent_form(goals_against, 1),
+         goalsagainst2 = recent_form(goals_against, 2),
+         goalsagainst3 = recent_form(goals_against, 3),
+         goalsagainst4 = recent_form(goals_against, 4),
+         goalsagainst5 = recent_form(goals_against, 5),
+         goalsagainst6 = recent_form(goals_against, 6),
+         goalsagainst7 = recent_form(goals_against, 7),
+         goalsagainst8 = recent_form(goals_against, 8),
+         goalsagainst9 = recent_form(goals_against, 9)) %>%
+  ungroup() %>%
+  select(-goals_for, -goals_against)
+
+# Create dataset of recent goal form for each team throughout season
+prem_recent_shots <- prem_combined %>%
+  filter(!is.na(hs)) %>%
+  select(date, season, "team" = home, "shots_for" = hs, 
+           "shots_against" = as) %>%
+    bind_rows(prem_combined %>%
+                select(date, season, "team" = away,
+                       "shots_for" = as, "shots_against" = hs)) %>%
+  group_by(season, team) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(shotsfor1 = recent_form(shots_for, 1),
+         shotsfor2 = recent_form(shots_for, 2),
+         shotsfor3 = recent_form(shots_for, 3),
+         shotsfor4 = recent_form(shots_for, 4),
+         shotsfor5 = recent_form(shots_for, 5),
+         shotsfor6 = recent_form(shots_for, 6),
+         shotsfor7 = recent_form(shots_for, 7),
+         shotsfor8 = recent_form(shots_for, 8),
+         shotsfor9 = recent_form(shots_for, 9), 
+         shotsagainst1 = recent_form(shots_against, 1),
+         shotsagainst2 = recent_form(shots_against, 2),
+         shotsagainst3 = recent_form(shots_against, 3),
+         shotsagainst4 = recent_form(shots_against, 4),
+         shotsagainst5 = recent_form(shots_against, 5),
+         shotsagainst6 = recent_form(shots_against, 6),
+         shotsagainst7 = recent_form(shots_against, 7),
+         shotsagainst8 = recent_form(shots_against, 8),
+         shotsagainst9 = recent_form(shots_against, 9)) %>%
+  ungroup() %>%
+  select(-shots_for, -shots_against)
+
+# Create dataset of recent goal form for each team throughout season
+prem_recent_shots_target <- prem_combined %>%
+  filter(!is.na(hs)) %>%
+  select(date, season, "team" = home, "targets_for" = hst, 
+           "targets_against" = ast) %>%
+    bind_rows(prem_combined %>%
+                select(date, season, "team" = away,
+                       "targets_for" = ast, "targets_against" = hst)) %>%
+  group_by(season, team) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(targetsfor1 = recent_form(targets_for, 1),
+         targetsfor2 = recent_form(targets_for, 2),
+         targetsfor3 = recent_form(targets_for, 3),
+         targetsfor4 = recent_form(targets_for, 4),
+         targetsfor5 = recent_form(targets_for, 5),
+         targetsfor6 = recent_form(targets_for, 6),
+         targetsfor7 = recent_form(targets_for, 7),
+         targetsfor8 = recent_form(targets_for, 8),
+         targetsfor9 = recent_form(targets_for, 9), 
+         targetsagainst1 = recent_form(targets_against, 1),
+         targetsagainst2 = recent_form(targets_against, 2),
+         targetsagainst3 = recent_form(targets_against, 3),
+         targetsagainst4 = recent_form(targets_against, 4),
+         targetsagainst5 = recent_form(targets_against, 5),
+         targetsagainst6 = recent_form(targets_against, 6),
+         targetsagainst7 = recent_form(targets_against, 7),
+         targetsagainst8 = recent_form(targets_against, 8),
+         targetsagainst9 = recent_form(targets_against, 9)) %>%
+  ungroup() %>%
+  select(-targets_for, -targets_against)
+
+# Create dataset of recent goal form for each team throughout season
+prem_recent_corners <- prem_combined %>%
+  filter(!is.na(hs)) %>%
+  select(date, season, "team" = home, "corners_for" = hc, 
+           "corners_against" = ac) %>%
+    bind_rows(prem_combined %>%
+                select(date, season, "team" = away,
+                       "corners_for" = ac, "corners_against" = hc)) %>%
+  group_by(season, team) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(cornersfor1 = recent_form(corners_for, 1),
+         cornersfor2 = recent_form(corners_for, 2),
+         cornersfor3 = recent_form(corners_for, 3),
+         cornersfor4 = recent_form(corners_for, 4),
+         cornersfor5 = recent_form(corners_for, 5),
+         cornersfor6 = recent_form(corners_for, 6),
+         cornersfor7 = recent_form(corners_for, 7),
+         cornersfor8 = recent_form(corners_for, 8),
+         cornersfor9 = recent_form(corners_for, 9), 
+         cornersagainst1 = recent_form(corners_against, 1),
+         cornersagainst2 = recent_form(corners_against, 2),
+         cornersagainst3 = recent_form(corners_against, 3),
+         cornersagainst4 = recent_form(corners_against, 4),
+         cornersagainst5 = recent_form(corners_against, 5),
+         cornersagainst6 = recent_form(corners_against, 6),
+         cornersagainst7 = recent_form(corners_against, 7),
+         cornersagainst8 = recent_form(corners_against, 8),
+         cornersagainst9 = recent_form(corners_against, 9)) %>%
+  ungroup() %>%
+  select(-corners_for, -corners_against)
+
+```
+
+
+## Various timelines of recent form - single measure
+Using both logistic regression and a 4-node single layer neural network, look at what timeline of recent goal scoring form best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
+```{r recent goals form}
+# Combine calculated form with observed results
+recent_goals_model_df <- prem_combined %>%
+  select(date, season, home, away, res) %>%
+  # Join home team recent form
+  left_join(prem_recent_goals %>%
+              rename_at(vars(matches("[0-9]")),
+                        function(x) paste0("home_", x)), 
+            by = c("date", "season", "home" = "team")) %>%
+  # Join away team recent form
+  left_join(prem_recent_goals %>%
+              rename_at(vars(matches("[0-9]")),
+                        function(x) paste0("away_", x)), 
+            by = c("date", "season", "away" = "team"))
+
+single_lag_results <- list()
+for (i in 1:9) {
+  season_results <- list()
+  for(this_season in unique(recent_goals_model_df$season)) {
+    train <- filter(recent_goals_model_df, season != this_season)
+    test <- filter(recent_goals_model_df, season == this_season)
+    
+    away_reg <- glm(formula(paste0("out ~ home_goalsfor", i, " + home_goalsagainst", i,
+                                   " + away_goalsfor", i, " + away_goalsagainst", i)),
+                    data = mutate(train, out = ifelse(res == "A", 1, 0)),
+                    family = "binomial")
+    draw_reg <- glm(formula(paste0("out ~ home_goalsfor", i, " + home_goalsagainst", i,
+                                   " + away_goalsfor", i, " + away_goalsagainst", i)),
+                    data = mutate(train, out = ifelse(res == "D", 1, 0)),
+                    family = "binomial")
+    home_reg <- glm(formula(paste0("out ~ home_goalsfor", i, " + home_goalsagainst", i,
+                                   " + away_goalsfor", i, " + away_goalsagainst", i)),
+                    data = mutate(train, out = ifelse(res == "H", 1, 0)),
+                    family = "binomial")
+    
+    # Predicted output
+    season_results[[this_season]] <- train %>%
+      mutate(pred_home = predict(home_reg, ., type = "response"),
+             pred_away = predict(away_reg, ., type = "response"),
+             pred_draw = predict(draw_reg, ., type = "response"),
+             log_pred_result = case_when(
+               pred_home > pred_away & pred_home > pred_draw ~ "H",
+               pred_away > pred_home & pred_away > pred_draw ~ "A",
+               pred_draw > pred_home & pred_draw > pred_home ~ "D",
+               TRUE ~ NA_character_
+             )) %>%
+      filter(!is.na(log_pred_result)) %>%
+      summarize(log_train_per = sum(log_pred_result == res) / n()) %>%
+      # Test error
+      cbind(test %>%
+                  mutate(pred_home = predict(home_reg, ., type = "response"),
+                         pred_away = predict(away_reg, ., type = "response"),
+                         pred_draw = predict(draw_reg, ., type = "response"),
+                         log_pred_result = case_when(
+                           pred_home > pred_away & pred_home > pred_draw ~ "H",
+                           pred_away > pred_home & pred_away > pred_draw ~ "A",
+                           pred_draw > pred_home & pred_draw > pred_home ~ "D",
+                           TRUE ~ NA_character_
+                         )) %>%
+                  filter(!is.na(log_pred_result)) %>%
+                  summarize(log_test_per = sum(log_pred_result == res) / n()))
+    }
+  # Take average of all cross-validated measures and save
+  single_lag_results[[i]] <- bind_rows(season_results) %>%
+    summarize_all(mean)
+}
+
+# Summarize results
+single_lag_results_tbl <- bind_rows(single_lag_results, .id = "Num Matches")
+
+single_lag_results_tbl %>%
+  select(`Num Matches`, `Logistic Train %` = log_train_per,
+         `Logistic Test %` = log_test_per) %>%
+  pander(split.cells = 15)
+
+```
+
+Taking into account additional games when determining recent form improves model results, which is unsurprising. Test and training set accuracy are very similar suggesting that the models are not overfitting the data and overall accuracy is moderate, suggesting that adding additional features to the model could result in improved model performance. Finally, there is no appreciable difference between logistic regression and a simple neural network. Given computational time, the next analyses will focus on evaluating feature performance using logistic regression, and then comparisons to a neural network will be made following selection of a smaller set of features to test.
+
+## Various timelines of recent form - cumulative measures
+Using logistic regression, this section evaluates what timeline of recent form best predicts results, taking into account all shorter measures of recent form. For example, the model of 5-match recent form also includes measures of 3-match and 4-match recent form.
+```{r multiple lags same model}
+multi_lag_results <- list()
+formulas <- vector()
+
+for (i in 1:9) {
+  # Set regression formula for models to follow
+  formulas[i] <- paste0("+ home_goalsfor", i, " + home_goalsagainst", i,
+                             " + away_goalsfor", i, " + away_goalsagainst", i)
+  this_reg <- formula(paste0("out ~ ", paste0(formulas[1:i], collapse = " ")))
+  
+  season_results <- list()
+  for(this_season in unique(recent_goals_model_df$season)) {
+    train <- filter(recent_goals_model_df, season != this_season)
+    test <- filter(recent_goals_model_df, season == this_season)
+    
+    away_reg <- glm(this_reg,
+                    data = mutate(train, out = ifelse(res == "A", 1, 0)),
+                    family = "binomial")
+    draw_reg <- glm(this_reg,
+                    data = mutate(train, out = ifelse(res == "D", 1, 0)),
+                    family = "binomial")
+    home_reg <- glm(this_reg,
+                    data = mutate(train, out = ifelse(res == "H", 1, 0)),
+                    family = "binomial")
+    
+    # Predicted output
+    season_results[[this_season]] <- train %>%
+      mutate(pred_home = predict(home_reg, ., type = "response"),
+             pred_away = predict(away_reg, ., type = "response"),
+             pred_draw = predict(draw_reg, ., type = "response"),
+             log_pred_result = case_when(
+               pred_home > pred_away & pred_home > pred_draw ~ "H",
+               pred_away > pred_home & pred_away > pred_draw ~ "A",
+               pred_draw > pred_home & pred_draw > pred_home ~ "D",
+               TRUE ~ NA_character_
+             )) %>%
+      filter(!is.na(log_pred_result)) %>%
+      summarize(log_train_per = sum(log_pred_result == res) / n()) %>%
+      # Test error
+      cbind(test %>%
+                  mutate(pred_home = predict(home_reg, ., type = "response"),
+                         pred_away = predict(away_reg, ., type = "response"),
+                         pred_draw = predict(draw_reg, ., type = "response"),
+                         log_pred_result = case_when(
+                           pred_home > pred_away & pred_home > pred_draw ~ "H",
+                           pred_away > pred_home & pred_away > pred_draw ~ "A",
+                           pred_draw > pred_home & pred_draw > pred_home ~ "D",
+                           TRUE ~ NA_character_
+                         )) %>%
+                  filter(!is.na(log_pred_result)) %>%
+                  summarize(log_test_per = sum(log_pred_result == res) / n()))
+    }
+  # Take average of all cross-validated measures and save
+  multi_lag_results[[i]] <- bind_rows(season_results) %>%
+    summarize_all(mean)
+}
+
+# Summarize results
+multi_lag_results_tbl <- bind_rows(multi_lag_results, .id = "Num Matches")
+
+multi_lag_results_tbl %>%
+  select(`Num Matches`, `Logistic Train %` = log_train_per,
+         `Logistic Test %` = log_test_per) %>%
+  pander(split.cells = 15)
+```
+
+
+# Recent shots
+Using logistic regression, look at what timeline of recent shots attempted best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
+```{r recent shots form}
+# Combine calculated form with observed results
+recent_shots_model_df <- prem_combined %>%
+  select(date, season, home, away, res) %>%
+  # Join home team recent form
+  left_join(prem_recent_shots %>%
+              rename_at(vars(matches("[0-9]")),
+                        function(x) paste0("home_", x)), 
+            by = c("date", "season", "home" = "team")) %>%
+  # Join away team recent form
+  left_join(prem_recent_shots %>%
+              rename_at(vars(matches("[0-9]")),
+                        function(x) paste0("away_", x)), 
+            by = c("date", "season", "away" = "team")) %>%
+  # Remove weeks without at least 1 week sum total - will also remove seasons w/o data
+  filter(!is.na(home_shotsfor1))
+
+single_lag_results <- list()
+for (i in 1:9) {
+  season_results <- list()
+  for(this_season in unique(recent_shots_model_df$season)) {
+    train <- filter(recent_shots_model_df, season != this_season)
+    test <- filter(recent_shots_model_df, season == this_season)
+    
+    away_reg <- glm(formula(paste0("out ~ home_shotsfor", i, 
+                                   " + home_shotsagainst", i,
+                                   " + away_shotsfor", i, 
+                                   " + away_shotsagainst", i)),
+                    data = mutate(train, out = ifelse(res == "A", 1, 0)),
+                    family = "binomial")
+    draw_reg <- glm(formula(paste0("out ~ home_shotsfor", i, 
+                                   " + home_shotsagainst", i,
+                                   " + away_shotsfor", i, 
+                                   " + away_shotsagainst", i)),
+                    data = mutate(train, out = ifelse(res == "D", 1, 0)),
+                    family = "binomial")
+    home_reg <- glm(formula(paste0("out ~ home_shotsfor", i, 
+                                   " + home_shotsagainst", i,
+                                   " + away_shotsfor", i, 
+                                   " + away_shotsagainst", i)),
+                    data = mutate(train, out = ifelse(res == "H", 1, 0)),
+                    family = "binomial")
+    
+    # Predicted output
+    season_results[[this_season]] <- train %>%
+      mutate(pred_home = predict(home_reg, ., type = "response"),
+             pred_away = predict(away_reg, ., type = "response"),
+             pred_draw = predict(draw_reg, ., type = "response"),
+             log_pred_result = case_when(
+               pred_home > pred_away & pred_home > pred_draw ~ "H",
+               pred_away > pred_home & pred_away > pred_draw ~ "A",
+               pred_draw > pred_home & pred_draw > pred_home ~ "D",
+               TRUE ~ NA_character_
+             )) %>%
+      filter(!is.na(log_pred_result)) %>%
+      summarize(log_train_per = sum(log_pred_result == res) / n()) %>%
+      # Test error
+      cbind(test %>%
+                  mutate(pred_home = predict(home_reg, ., type = "response"),
+                         pred_away = predict(away_reg, ., type = "response"),
+                         pred_draw = predict(draw_reg, ., type = "response"),
+                         log_pred_result = case_when(
+                           pred_home > pred_away & pred_home > pred_draw ~ "H",
+                           pred_away > pred_home & pred_away > pred_draw ~ "A",
+                           pred_draw > pred_home & pred_draw > pred_home ~ "D",
+                           TRUE ~ NA_character_
+                         )) %>%
+                  filter(!is.na(log_pred_result)) %>%
+                  summarize(log_test_per = sum(log_pred_result == res) / n()))
+    }
+  # Take average of all cross-validated measures and save
+  single_lag_results[[i]] <- bind_rows(season_results) %>%
+    summarize_all(mean)
+}
+
+# Summarize results
+single_lag_results_tbl <- bind_rows(single_lag_results, .id = "Num Matches")
+
+single_lag_results_tbl %>%
+  select(`Num Matches`, `Logistic Train %` = log_train_per,
+         `Logistic Test %` = log_test_per) %>%
+  pander(split.cells = 15)
+
+```
+
+
+## Various timelines of recent shots - cumulative measures
+Using logistic regression, this section evaluates what timeline of recent shots best predicts results, taking into account all shorter measures of recent form. For example, the model of 5-match recent shots also includes measures of 3-match and 4-match recent shots.
+```{r multiple lags same model shots}
+multi_lag_results <- list()
+formulas <- vector()
+
+for (i in 1:9) {
+  # Set regression formula for models to follow
+  formulas[i] <- paste0("+ home_shotsfor", i, " + home_shotsagainst", i,
+                             " + away_shotsfor", i, " + away_shotsagainst", i)
+  this_reg <- formula(paste0("out ~ ", paste0(formulas[1:i], collapse = " ")))
+  
+  season_results <- list()
+  for(this_season in unique(recent_shots_model_df$season)) {
+    train <- filter(recent_shots_model_df, season != this_season)
+    test <- filter(recent_shots_model_df, season == this_season)
+    
+    away_reg <- glm(this_reg,
+                    data = mutate(train, out = ifelse(res == "A", 1, 0)),
+                    family = "binomial")
+    draw_reg <- glm(this_reg,
+                    data = mutate(train, out = ifelse(res == "D", 1, 0)),
+                    family = "binomial")
+    home_reg <- glm(this_reg,
+                    data = mutate(train, out = ifelse(res == "H", 1, 0)),
+                    family = "binomial")
+    
+    # Predicted output
+    season_results[[this_season]] <- train %>%
+      mutate(pred_home = predict(home_reg, ., type = "response"),
+             pred_away = predict(away_reg, ., type = "response"),
+             pred_draw = predict(draw_reg, ., type = "response"),
+             log_pred_result = case_when(
+               pred_home > pred_away & pred_home > pred_draw ~ "H",
+               pred_away > pred_home & pred_away > pred_draw ~ "A",
+               pred_draw > pred_home & pred_draw > pred_home ~ "D",
+               TRUE ~ NA_character_
+             )) %>%
+      filter(!is.na(log_pred_result)) %>%
+      summarize(log_train_per = sum(log_pred_result == res) / n()) %>%
+      # Test error
+      cbind(test %>%
+                  mutate(pred_home = predict(home_reg, ., type = "response"),
+                         pred_away = predict(away_reg, ., type = "response"),
+                         pred_draw = predict(draw_reg, ., type = "response"),
+                         log_pred_result = case_when(
+                           pred_home > pred_away & pred_home > pred_draw ~ "H",
+                           pred_away > pred_home & pred_away > pred_draw ~ "A",
+                           pred_draw > pred_home & pred_draw > pred_home ~ "D",
+                           TRUE ~ NA_character_
+                         )) %>%
+                  filter(!is.na(log_pred_result)) %>%
+                  summarize(log_test_per = sum(log_pred_result == res) / n()))
+    }
+  # Take average of all cross-validated measures and save
+  multi_lag_results[[i]] <- bind_rows(season_results) %>%
+    summarize_all(mean)
+}
+
+# Summarize results
+multi_lag_results_tbl <- bind_rows(multi_lag_results, .id = "Num Matches")
+
+multi_lag_results_tbl %>%
+  select(`Num Matches`, `Logistic Train %` = log_train_per,
+         `Logistic Test %` = log_test_per) %>%
+  pander(split.cells = 15)
+```
+
+
+# Recent shots on target
+Using logistic regression, look at what timeline of recent shots on target best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
+```{r recent shots on target form}
+# Combine calculated form with observed results
+recent_shots_target_model_df <- prem_combined %>%
+  select(date, season, home, away, res) %>%
+  # Join home team recent form
+  left_join(prem_recent_shots_target %>%
+              rename_at(vars(matches("[0-9]")),
+                        function(x) paste0("home_", x)), 
+            by = c("date", "season", "home" = "team")) %>%
+  # Join away team recent form
+  left_join(prem_recent_shots_target %>%
+              rename_at(vars(matches("[0-9]")),
+                        function(x) paste0("away_", x)), 
+            by = c("date", "season", "away" = "team")) %>%
+  # Remove weeks without at least 1 week sum total - will also remove seasons w/o data
+  filter(!is.na(home_targetsfor1))
+
+single_lag_results <- list()
+for (i in 1:9) {
+  season_results <- list()
+  for(this_season in unique(recent_shots_target_model_df$season)) {
+    train <- filter(recent_shots_target_model_df, season != this_season)
+    test <- filter(recent_shots_target_model_df, season == this_season)
+    
+    away_reg <- glm(formula(paste0("out ~ home_targetsfor", i, 
+                                   " + home_targetsagainst", i,
+                                   " + away_targetsfor", i, 
+                                   " + away_targetsagainst", i)),
+                    data = mutate(train, out = ifelse(res == "A", 1, 0)),
+                    family = "binomial")
+    draw_reg <- glm(formula(paste0("out ~ home_targetsfor", i, 
+                                   " + home_targetsagainst", i,
+                                   " + away_targetsfor", i, 
+                                   " + away_targetsagainst", i)),
+                    data = mutate(train, out = ifelse(res == "D", 1, 0)),
+                    family = "binomial")
+    home_reg <- glm(formula(paste0("out ~ home_targetsfor", i, 
+                                   " + home_targetsagainst", i,
+                                   " + away_targetsfor", i, 
+                                   " + away_targetsagainst", i)),
+                    data = mutate(train, out = ifelse(res == "H", 1, 0)),
+                    family = "binomial")
+    
+    # Predicted output
+    season_results[[this_season]] <- train %>%
+      mutate(pred_home = predict(home_reg, ., type = "response"),
+             pred_away = predict(away_reg, ., type = "response"),
+             pred_draw = predict(draw_reg, ., type = "response"),
+             log_pred_result = case_when(
+               pred_home > pred_away & pred_home > pred_draw ~ "H",
+               pred_away > pred_home & pred_away > pred_draw ~ "A",
+               pred_draw > pred_home & pred_draw > pred_home ~ "D",
+               TRUE ~ NA_character_
+             )) %>%
+      filter(!is.na(log_pred_result)) %>%
+      summarize(log_train_per = sum(log_pred_result == res) / n()) %>%
+      # Test error
+      cbind(test %>%
+                  mutate(pred_home = predict(home_reg, ., type = "response"),
+                         pred_away = predict(away_reg, ., type = "response"),
+                         pred_draw = predict(draw_reg, ., type = "response"),
+                         log_pred_result = case_when(
+                           pred_home > pred_away & pred_home > pred_draw ~ "H",
+                           pred_away > pred_home & pred_away > pred_draw ~ "A",
+                           pred_draw > pred_home & pred_draw > pred_home ~ "D",
+                           TRUE ~ NA_character_
+                         )) %>%
+                  filter(!is.na(log_pred_result)) %>%
+                  summarize(log_test_per = sum(log_pred_result == res) / n()))
+    }
+  # Take average of all cross-validated measures and save
+  single_lag_results[[i]] <- bind_rows(season_results) %>%
+    summarize_all(mean)
+}
+
+# Summarize results
+single_lag_results_tbl <- bind_rows(single_lag_results, .id = "Num Matches")
+
+single_lag_results_tbl %>%
+  select(`Num Matches`, `Logistic Train %` = log_train_per,
+         `Logistic Test %` = log_test_per) %>%
+  pander(split.cells = 15)
+
+```
+
+## Various timelines of recent shots on target - cumulative measures
+Using logistic regression, this section evaluates what timeline of recent shots on target best predicts results, taking into account all shorter measures of recent form. For example, the model of 5-match recent shots also includes measures of 3-match and 4-match recent shots.
+```{r multiple lags same model shots}
+multi_lag_results <- list()
+formulas <- vector()
+
+for (i in 1:9) {
+  # Set regression formula for models to follow
+  formulas[i] <- paste0("+ home_targetsfor", i, " + home_targetsagainst", i,
+                             " + away_targetsfor", i, " + away_targetsagainst", i)
+  this_reg <- formula(paste0("out ~ ", paste0(formulas[1:i], collapse = " ")))
+  
+  season_results <- list()
+  for(this_season in unique(recent_shots_target_model_df$season)) {
+    train <- filter(recent_shots_target_model_df, season != this_season)
+    test <- filter(recent_shots_target_model_df, season == this_season)
+    
+    away_reg <- glm(this_reg,
+                    data = mutate(train, out = ifelse(res == "A", 1, 0)),
+                    family = "binomial")
+    draw_reg <- glm(this_reg,
+                    data = mutate(train, out = ifelse(res == "D", 1, 0)),
+                    family = "binomial")
+    home_reg <- glm(this_reg,
+                    data = mutate(train, out = ifelse(res == "H", 1, 0)),
+                    family = "binomial")
+    
+    # Predicted output
+    season_results[[this_season]] <- train %>%
+      mutate(pred_home = predict(home_reg, ., type = "response"),
+             pred_away = predict(away_reg, ., type = "response"),
+             pred_draw = predict(draw_reg, ., type = "response"),
+             log_pred_result = case_when(
+               pred_home > pred_away & pred_home > pred_draw ~ "H",
+               pred_away > pred_home & pred_away > pred_draw ~ "A",
+               pred_draw > pred_home & pred_draw > pred_home ~ "D",
+               TRUE ~ NA_character_
+             )) %>%
+      filter(!is.na(log_pred_result)) %>%
+      summarize(log_train_per = sum(log_pred_result == res) / n()) %>%
+      # Test error
+      cbind(test %>%
+                  mutate(pred_home = predict(home_reg, ., type = "response"),
+                         pred_away = predict(away_reg, ., type = "response"),
+                         pred_draw = predict(draw_reg, ., type = "response"),
+                         log_pred_result = case_when(
+                           pred_home > pred_away & pred_home > pred_draw ~ "H",
+                           pred_away > pred_home & pred_away > pred_draw ~ "A",
+                           pred_draw > pred_home & pred_draw > pred_home ~ "D",
+                           TRUE ~ NA_character_
+                         )) %>%
+                  filter(!is.na(log_pred_result)) %>%
+                  summarize(log_test_per = sum(log_pred_result == res) / n()))
+    }
+  # Take average of all cross-validated measures and save
+  multi_lag_results[[i]] <- bind_rows(season_results) %>%
+    summarize_all(mean)
+}
+
+# Summarize results
+multi_lag_results_tbl <- bind_rows(multi_lag_results, .id = "Num Matches")
+
+multi_lag_results_tbl %>%
+  select(`Num Matches`, `Logistic Train %` = log_train_per,
+         `Logistic Test %` = log_test_per) %>%
+  pander(split.cells = 15)
+```
+
+
+# Combine goals scored, shots, and shots on target
+Individual components have maxed out at around 52% of games being predicted correctly. Next, we combine all three measures looked at so far (goals scored, shots, and shots on target). Using logistic regression, look at what timeline of recent form as measured by all metrics best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
+```{r recent goals shots and shots on target}
+# Combine calculated form with observed results
+recent_form_model_df <- prem_combined %>%
+  select(date, season, home, away, res) %>%
+  # Join home team recent goals
+  left_join(prem_recent_goals %>%
+              rename_at(vars(matches("[0-9]")),
+                        function(x) paste0("home_", x)), 
+            by = c("date", "season", "home" = "team")) %>%
+  # Join away team recent goals
+  left_join(prem_recent_goals %>%
+              rename_at(vars(matches("[0-9]")),
+                        function(x) paste0("away_", x)), 
+            by = c("date", "season", "away" = "team")) %>%
+  # Join home team recent shots
+  left_join(prem_recent_shots %>%
+              rename_at(vars(matches("[0-9]")),
+                        function(x) paste0("home_", x)), 
+            by = c("date", "season", "home" = "team")) %>%
+  # Join away team recent shots
+  left_join(prem_recent_shots %>%
+              rename_at(vars(matches("[0-9]")),
+                        function(x) paste0("away_", x)), 
+            by = c("date", "season", "away" = "team")) %>%
+  # Join home team recent shots on target
+  left_join(prem_recent_shots_target %>%
+              rename_at(vars(matches("[0-9]")),
+                        function(x) paste0("home_", x)), 
+            by = c("date", "season", "home" = "team")) %>%
+  # Join away team recent shots on target
+  left_join(prem_recent_shots_target %>%
+              rename_at(vars(matches("[0-9]")),
+                        function(x) paste0("away_", x)), 
+            by = c("date", "season", "away" = "team")) %>%
+  # Remove weeks without at least 1 week sum total - will also remove seasons w/o data
+  filter(!is.na(home_targetsfor1))
+
+single_lag_results <- list()
+for (i in 1:9) {
+  season_results <- list()
+  for(this_season in unique(recent_form_model_df$season)) {
+    train <- filter(recent_form_model_df, season != this_season)
+    test <- filter(recent_form_model_df, season == this_season)
+    
+    away_reg <- glm(formula(paste0("out ~ home_targetsfor", i, 
+                                   " + home_targetsagainst", i,
+                                   " + away_targetsfor", i, 
+                                   " + away_targetsagainst", i,
+                                   " + home_goalsfor", i, 
+                                   " + home_goalsagainst", i,
+                                   " + away_goalsfor", i,
+                                   " + away_goalsagainst", i,
+                                   " + home_shotsfor", i, 
+                                   " + home_shotsagainst", i,
+                                   " + away_shotsfor", i, 
+                                   " + away_shotsagainst", i)),
+                    data = mutate(train, out = ifelse(res == "A", 1, 0)),
+                    family = "binomial")
+    draw_reg <- glm(formula(paste0("out ~ home_targetsfor", i, 
+                                   " + home_targetsagainst", i,
+                                   " + away_targetsfor", i, 
+                                   " + away_targetsagainst", i,
+                                   " + home_goalsfor", i, 
+                                   " + home_goalsagainst", i,
+                                   " + away_goalsfor", i,
+                                   " + away_goalsagainst", i,
+                                   " + home_shotsfor", i, 
+                                   " + home_shotsagainst", i,
+                                   " + away_shotsfor", i, 
+                                   " + away_shotsagainst", i)),
+                    data = mutate(train, out = ifelse(res == "D", 1, 0)),
+                    family = "binomial")
+    home_reg <- glm(formula(paste0("out ~ home_targetsfor", i, 
+                                   " + home_targetsagainst", i,
+                                   " + away_targetsfor", i, 
+                                   " + away_targetsagainst", i,
+                                   " + home_goalsfor", i, 
+                                   " + home_goalsagainst", i,
+                                   " + away_goalsfor", i,
+                                   " + away_goalsagainst", i,
+                                   " + home_shotsfor", i, 
+                                   " + home_shotsagainst", i,
+                                   " + away_shotsfor", i, 
+                                   " + away_shotsagainst", i)),
+                    data = mutate(train, out = ifelse(res == "H", 1, 0)),
+                    family = "binomial")
+    
+    # Predicted output
+    season_results[[this_season]] <- train %>%
+      mutate(pred_home = predict(home_reg, ., type = "response"),
+             pred_away = predict(away_reg, ., type = "response"),
+             pred_draw = predict(draw_reg, ., type = "response"),
+             log_pred_result = case_when(
+               pred_home > pred_away & pred_home > pred_draw ~ "H",
+               pred_away > pred_home & pred_away > pred_draw ~ "A",
+               pred_draw > pred_home & pred_draw > pred_home ~ "D",
+               TRUE ~ NA_character_
+             )) %>%
+      filter(!is.na(log_pred_result)) %>%
+      summarize(log_train_per = sum(log_pred_result == res) / n()) %>%
+      # Test error
+      cbind(test %>%
+                  mutate(pred_home = predict(home_reg, ., type = "response"),
+                         pred_away = predict(away_reg, ., type = "response"),
+                         pred_draw = predict(draw_reg, ., type = "response"),
+                         log_pred_result = case_when(
+                           pred_home > pred_away & pred_home > pred_draw ~ "H",
+                           pred_away > pred_home & pred_away > pred_draw ~ "A",
+                           pred_draw > pred_home & pred_draw > pred_home ~ "D",
+                           TRUE ~ NA_character_
+                         )) %>%
+                  filter(!is.na(log_pred_result)) %>%
+                  summarize(log_test_per = sum(log_pred_result == res) / n()))
+    }
+  # Take average of all cross-validated measures and save
+  single_lag_results[[i]] <- bind_rows(season_results) %>%
+    summarize_all(mean)
+}
+
+# Summarize results
+single_lag_results_tbl <- bind_rows(single_lag_results, .id = "Num Matches")
+
+single_lag_results_tbl %>%
+  select(`Num Matches`, `Logistic Train %` = log_train_per,
+         `Logistic Test %` = log_test_per) %>%
+  pander(split.cells = 15)
+
+```
