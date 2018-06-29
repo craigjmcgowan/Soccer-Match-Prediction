@@ -11,12 +11,14 @@ for(this_season in prem_seasons) {
                                         this_season, "/E0.csv"),
                                  stringsAsFactors = FALSE) %>%
     rename_all(tolower) %>%
-    rename("hg" = fthg, "ag" = ftag, "res" = ftr)
+    rename("home" = hometeam, "away" = awayteam,
+           "hg" = fthg, "ag" = ftag, "res" = ftr) 
 }
 
 prem_combined = bind_rows(prem, .id = "season") %>%
   select(-contains("x."), -x) %>%
-  mutate(date = as.Date(date, "%d/%m/%y"))
+  mutate(date = as.Date(date, "%d/%m/%y"))%>%
+  filter(!is.na(date))
 
 save(prem_combined, file = "Data/Prem.Rdata")
 
