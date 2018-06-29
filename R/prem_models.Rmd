@@ -157,7 +157,7 @@ prem_recent_corners <- prem_combined %>%
 
 
 ## Various timelines of recent form - single measure
-Using both logistic regression and a 4-node single layer neural network, look at what timeline of recent goal scoring form best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
+Using logistic regression, look at what timeline of recent goal scoring form best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
 ```{r recent goals form}
 # Combine calculated form with observed results
 recent_goals_model_df <- prem_combined %>%
@@ -235,7 +235,7 @@ single_lag_results_tbl %>%
 
 ```
 
-Taking into account additional games when determining recent form improves model results, which is unsurprising. Test and training set accuracy are very similar suggesting that the models are not overfitting the data and overall accuracy is moderate, suggesting that adding additional features to the model could result in improved model performance. Finally, there is no appreciable difference between logistic regression and a simple neural network. Given computational time, the next analyses will focus on evaluating feature performance using logistic regression, and then comparisons to a neural network will be made following selection of a smaller set of features to test.
+Taking into account additional games when determining recent form improves model results, which is unsurprising. Test and training set accuracy are very similar suggesting that the models are not overfitting the data and overall accuracy is moderate, suggesting that adding additional features to the model could result in improved model performance.
 
 ## Various timelines of recent form - cumulative measures
 Using logistic regression, this section evaluates what timeline of recent form best predicts results, taking into account all shorter measures of recent form. For example, the model of 5-match recent form also includes measures of 3-match and 4-match recent form.
