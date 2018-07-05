@@ -413,7 +413,9 @@ prem_recent_ycs <- prem_combined %>%
 Using logistic regression, look at what timeline of recent goal scoring form best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
 ```{r recent goals form}
 
-single_recent_model(prem_recent_goals) %>%
+sing_goals_result <- single_recent_model(prem_recent_goals) 
+
+sing_goals_result %>%
   pander(split.cells = 15)
 
 ```
@@ -423,7 +425,9 @@ Taking into account additional games when determining recent form improves model
 ## Various timelines of recent form - cumulative measures
 Using logistic regression, this section evaluates what timeline of recent form best predicts results, taking into account all shorter measures of recent form. For example, the model of 5-match recent form also includes measures of 3-match and 4-match recent form.
 ```{r multiple lags same model}
-multi_recent_model(prem_recent_goals) %>%
+mult_goals_result <- multi_recent_model(prem_recent_goals) 
+
+mult_goals_result %>%
   pander(split.cells = 15)
 ```
 
@@ -431,7 +435,9 @@ multi_recent_model(prem_recent_goals) %>%
 # Recent shots
 Using logistic regression, look at what timeline of recent shots attempted best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
 ```{r recent shots form}
-single_recent_model(prem_recent_shots) %>%
+sing_shots_result <- single_recent_model(prem_recent_shots) 
+
+sing_shots_result %>%
   pander(split.cells = 15)
 ```
 
@@ -439,7 +445,9 @@ single_recent_model(prem_recent_shots) %>%
 ## Various timelines of recent shots - cumulative measures
 Using logistic regression, this section evaluates what timeline of recent shots best predicts results, taking into account all shorter measures of recent form. For example, the model of 5-match recent shots also includes measures of 3-match and 4-match recent shots.
 ```{r multiple lags same model shots}
-multi_recent_model(prem_recent_shots) %>%
+mult_shots_result <- multi_recent_model(prem_recent_shots) 
+
+mult_shots_result %>%
   pander(split.cells = 15)
 ```
 
@@ -447,14 +455,18 @@ multi_recent_model(prem_recent_shots) %>%
 # Recent shots on target
 Using logistic regression, look at what timeline of recent shots on target best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
 ```{r recent shots on target form}
-single_recent_model(prem_recent_shots_target) %>%
+sing_shots_target_result <- single_recent_model(prem_recent_shots_target) 
+
+sing_shots_target_result %>%
   pander(split.cells = 15)
 ```
 
 ## Various timelines of recent shots on target - cumulative measures
 Using logistic regression, this section evaluates what timeline of recent shots on target best predicts results, taking into account all shorter measures of recent form. For example, the model of 5-match recent shots also includes measures of 3-match and 4-match recent shots.
 ```{r multiple lags same model shots on target}
-multi_recent_model(prem_recent_shots_target) %>%
+mult_shots_target_result <- multi_recent_model(prem_recent_shots_target) 
+
+mult_shots_target_result %>%
   pander(split.cells = 15)
 ```
 
@@ -462,7 +474,9 @@ multi_recent_model(prem_recent_shots_target) %>%
 # Recent corners
 Using logistic regression, look at what timeline of recent corners best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
 ```{r recent corners form}
-single_recent_model(prem_recent_corners) %>%
+sing_corner_result <- single_recent_model(prem_recent_corners) 
+
+sing_corner_result %>%
   pander(split.cells = 15)
 
 ```
@@ -470,14 +484,18 @@ single_recent_model(prem_recent_corners) %>%
 ## Various timelines of recent corners - cumulative measures
 Using logistic regression, this section evaluates what timeline of recent shots on target best predicts results, taking into account all shorter measures of recent form. For example, the model of 5-match recent shots also includes measures of 3-match and 4-match recent shots.
 ```{r multiple lags same model corners}
-multi_recent_model(prem_recent_corners) %>%
+mult_corner_result <- multi_recent_model(prem_recent_corners) 
+
+mult_corner_result %>%
   pander(split.cells = 15)
 ```
 
 # Recent fouls
 Using logistic regression, look at what timeline of recent fouls best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
 ```{r recent fouls form}
-single_recent_model(prem_recent_fouls) %>%
+sing_foul_result <- single_recent_model(prem_recent_fouls)
+
+sing_foul_result %>%
   pander(split.cells = 15)
 
 ```
@@ -485,14 +503,18 @@ single_recent_model(prem_recent_fouls) %>%
 ## Various timelines of recent fouls - cumulative measures
 Using logistic regression, this section evaluates what timeline of recent fouls best predicts results, taking into account all shorter measures of recent form. For example, the model of 5-match recent fouls also includes measures of 3-match and 4-match recent fouls
 ```{r multiple lags same model fouls}
-multi_recent_model(prem_recent_fouls) %>%
+mult_foul_result <- multi_recent_model(prem_recent_fouls)
+
+mult_foul_result %>%
   pander(split.cells = 15)
 ```
 
 # Recent Offsides
-Using logistic regression, look at what timeline of recent offsides best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
+Using logistic regression, look at what timeline of recent offside best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
 ```{r recent offsides form}
-single_recent_model(prem_recent_offsides) %>%
+sing_offside_result <- single_recent_model(prem_recent_offsides) 
+
+sing_offside_result %>%
   pander(split.cells = 15)
 
 ```
@@ -500,14 +522,18 @@ single_recent_model(prem_recent_offsides) %>%
 ## Various timelines of recent offsides - cumulative measures
 Using logistic regression, this section evaluates what timeline of recent offsides best predicts results, taking into account all shorter measures of recent form. For example, the model of 5-match recent offsides also includes measures of 3-match and 4-match recent offsides
 ```{r multiple lags same model offsides}
-multi_recent_model(prem_recent_offsides) %>%
+mult_offside_result <- multi_recent_model(prem_recent_offsides) 
+
+mult_offside_result %>%
   pander(split.cells = 15)
 ```
 
 # Recent yellow cards
 Using logistic regression, look at what timeline of recent yellow cards best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
 ```{r recent yc form}
-single_recent_model(prem_recent_ycs) %>%
+sing_yc_result <- single_recent_model(prem_recent_ycs) 
+
+sing_yc_result %>%
   pander(split.cells = 15)
 
 ```
@@ -515,6 +541,57 @@ single_recent_model(prem_recent_ycs) %>%
 ## Various timelines of recent yellow cards - cumulative measures
 Using logistic regression, this section evaluates what timeline of recent yellow cards best predicts results, taking into account all shorter measures of recent form. For example, the model of 5-match recent offsides also includes measures of 3-match and 4-match recent yellow cards.
 ```{r multiple lags same model yc}
-multi_recent_model(prem_recent_ycs) %>%
+mult_yc_result <- multi_recent_model(prem_recent_ycs) 
+
+mult_yc_result %>%
   pander(split.cells = 15)
 ```
+
+# Plots of all measures
+
+### Single lag models
+```{r single lag plot}
+mutate(sing_goals_result, 
+       model = "Goals scored") %>%
+  bind_rows(mutate(sing_shots_result,
+                   model = "Shots taken")) %>%
+  bind_rows(mutate(sing_shots_target_result,
+                   model = "Shots on target")) %>%
+  bind_rows(mutate(sing_foul_result,
+                   model = "Fouls")) %>%
+  bind_rows(mutate(sing_corner_result,
+                   model = "Corners")) %>%
+  bind_rows(mutate(sing_offside_result,
+                   model = "Offside")) %>%
+  bind_rows(mutate(sing_yc_result,
+                   model = "Yellow cards")) %>%
+  gather(key = "train_test", value = "perform", `Logistic Train %`, 
+         `Logistic Test %`) %>%
+  ggplot(aes(x = `Num Matches`, y = perform)) +
+  geom_point(aes(color = model, shape = train_test))
+  
+```
+
+### Multiple lag models
+```{r multiple lag plot}
+mutate(mult_goals_result, 
+       model = "Goals scored") %>%
+  bind_rows(mutate(mult_shots_result,
+                   model = "Shots taken")) %>%
+  bind_rows(mutate(mult_shots_target_result,
+                   model = "Shots on target")) %>%
+  bind_rows(mutate(mult_foul_result,
+                   model = "Fouls")) %>%
+  bind_rows(mutate(mult_corner_result,
+                   model = "Corners")) %>%
+  bind_rows(mutate(mult_offside_result,
+                   model = "Offside")) %>%
+  bind_rows(mutate(mult_yc_result,
+                   model = "Yellow cards")) %>%
+  gather(key = "train_test", value = "perform", `Logistic Train %`, 
+         `Logistic Test %`) %>%
+  ggplot(aes(x = `Num Matches`, y = perform)) +
+  geom_point(aes(color = model, shape = train_test))
+
+```
+
