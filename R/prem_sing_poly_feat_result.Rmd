@@ -121,8 +121,8 @@ single_poly_model <- function(df) {
   }
 
   # Summarize results
-  bind_rows(single_lag_results, .id = "Num Matches") %>%
-    select(`Num Matches`, `Logistic Train %` = log_train_per,
+  bind_rows(single_lag_results, .id = "Polynomial order") %>%
+    select(`Polynomial order`, `Logistic Train %` = log_train_per,
            `Logistic Test %` = log_test_per)
 }
 ```
@@ -243,7 +243,7 @@ prem_recent_ycs <- prem_combined %>%
 
 # Goals scored
 ```{r recent goals form}
-sing_goals_result <- single_recent_model(prem_recent_goals)
+sing_goals_result <- single_poly_model(prem_recent_goals)
 
 sing_goals_result %>%
   pander(split.cells = 15)
@@ -253,7 +253,7 @@ sing_goals_result %>%
 
 # Recent shots
 ```{r recent shots form}
-sing_shots_result <- single_recent_model(prem_recent_shots)
+sing_shots_result <- single_poly_model(prem_recent_shots)
 
 sing_shots_result %>%
   pander(split.cells = 15)
@@ -262,7 +262,7 @@ sing_shots_result %>%
 
 # Recent shots on target
 ```{r recent shots on target form}
-sing_shots_target_result <- single_recent_model(prem_recent_shots_target) 
+sing_shots_target_result <- single_poly_model(prem_recent_shots_target) 
 
 sing_shots_target_result %>%
   pander(split.cells = 15)
@@ -270,7 +270,7 @@ sing_shots_target_result %>%
 
 # Recent corners
 ```{r recent corners form}
-sing_corner_result <- single_recent_model(prem_recent_corners)
+sing_corner_result <- single_poly_model(prem_recent_corners)
 
 sing_corner_result %>%
   pander(split.cells = 15)
@@ -279,14 +279,16 @@ sing_corner_result %>%
 
 # Recent fouls
 ```{r recent fouls form}
-sing_foul_result <- single_recent_model(prem_recent_fouls) %>%
+sing_foul_result <- single_poly_model(prem_recent_fouls) 
+
+sing_foul_result %>%
   pander(split.cells = 15)
 
 ```
 
 # Recent Offsides
 ```{r recent offsides form}
-sing_offside_result <- single_recent_model(prem_recent_offsides)
+sing_offside_result <- single_poly_model(prem_recent_offsides)
 
 sing_offside_result %>%
   pander(split.cells = 15)
@@ -295,7 +297,7 @@ sing_offside_result %>%
 
 # Recent yellow cards
 ```{r recent yc form}
-sing_yc_result <- single_recent_model(prem_recent_ycs) 
+sing_yc_result <- single_poly_model(prem_recent_ycs) 
 
 sing_yc_result %>%
   pander(split.cells = 15)
@@ -322,7 +324,7 @@ mutate(sing_goals_result,
                    model = "Yellow cards")) %>%
   gather(key = "train_test", value = "perform", `Logistic Train %`, 
          `Logistic Test %`) %>%
-  ggplot(aes(x = `Num Matches`, y = perform)) +
+  ggplot(aes(x = `Polynomial order`, y = perform)) +
   geom_point(aes(color = model, shape = train_test))
   
 ```
