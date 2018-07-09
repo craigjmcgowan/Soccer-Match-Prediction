@@ -1,0 +1,246 @@
+---
+title: "Premier League Single Feature SVM"
+author: "Craig McGowan"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(pander)
+
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_knit$set(root.dir = "../")
+```
+
+```{r functions}
+# Recent form for a particular stat
+recent_form <- function(var, num_weeks) {
+
+  lag(zoo::rollsum(var, num_weeks, na.pad = TRUE, align = "right"), 1)
+ 
+}
+
+# single_feat_svm <- function(df, var_order) {
+#   
+#   model_df <- prem_combined %>%
+#     select(date, season, home, away, res) %>%
+#     # Join home team recent form
+#     left_join(df %>%
+#                 rename_at(vars(matches("[0-9]")),
+#                           function(x) paste0("home_", x)), 
+#               by = c("date", "season", "home" = "team")) %>%
+#     # Join away team recent form
+#     left_join(df %>%
+#                 rename_at(vars(matches("[0-9]")),
+#                           function(x) paste0("away_", x)), 
+#               by = c("date", "season", "away" = "team")) %>%
+#     # Remove weeks without prediction data
+#     filter(!is.na(home_targetsfor4))
+#   
+#   model_results <- list()
+#   for (i in 1:length(var_order)) {
+#     season_results <- list()
+#     
+#     # Build regression equation
+#     reg_string <- "out ~ "
+#     for(j in 1:i) {
+#       reg_string <- paste0(reg_string, "+ home_", var_order[j], "for4 + home_", 
+#                            var_order[j], "against4 + away_", var_order[j],
+#                            "for4 + away_", var_order[j], "against4")
+#     }
+#     
+#     for(this_season in unique(model_df$season)) {
+#       train <- filter(model_df, season != this_season)
+#       test <- filter(model_df, season == this_season)
+#       
+#       away_reg <- glm(formula(reg_string),
+#                       data = mutate(train, out = ifelse(res == "A", 1, 0)),
+#                       family = "binomial")
+#       draw_reg <- glm(formula(reg_string),
+#                       data = mutate(train, out = ifelse(res == "D", 1, 0)),
+#                       family = "binomial")
+#       home_reg <- glm(formula(reg_string),
+#                       data = mutate(train, out = ifelse(res == "H", 1, 0)),
+#                       family = "binomial")
+#       
+#       # Predicted output
+#       season_results[[this_season]] <- train %>%
+#         mutate(pred_home = predict(home_reg, ., type = "response"),
+#                pred_away = predict(away_reg, ., type = "response"),
+#                pred_draw = predict(draw_reg, ., type = "response"),
+#                log_pred_result = case_when(
+#                  pred_home > pred_away & pred_home > pred_draw ~ "H",
+#                  pred_away > pred_home & pred_away > pred_draw ~ "A",
+#                  pred_draw > pred_home & pred_draw > pred_home ~ "D",
+#                  TRUE ~ NA_character_
+#                )) %>%
+#         filter(!is.na(log_pred_result)) %>%
+#         summarize(log_train_per = sum(log_pred_result == res) / n()) %>%
+#         # Test error
+#         cbind(test %>%
+#                     mutate(pred_home = predict(home_reg, ., type = "response"),
+#                            pred_away = predict(away_reg, ., type = "response"),
+#                            pred_draw = predict(draw_reg, ., type = "response"),
+#                            log_pred_result = case_when(
+#                              pred_home > pred_away & pred_home > pred_draw ~ "H",
+#                              pred_away > pred_home & pred_away > pred_draw ~ "A",
+#                              pred_draw > pred_home & pred_draw > pred_home ~ "D",
+#                              TRUE ~ NA_character_
+#                            )) %>%
+#                     filter(!is.na(log_pred_result)) %>%
+#                     summarize(log_test_per = sum(log_pred_result == res) / n()))
+#       }
+#     # Take average of all cross-validated measures and save
+#     model_results[[var_order[i]]] <- bind_rows(season_results) %>%
+#       summarize_all(mean)
+#   }
+# 
+#   # Summarize results
+#   bind_rows(model_results, .id = "Last variable added") %>%
+#     select(`Last variable added`, `Logistic Train %` = log_train_per,
+#            `Logistic Test %` = log_test_per)
+# }
+
+```
+
+```{r read in data and set up summary datasets}
+# Read in data
+load("Data/prem.Rdata")
+
+prem_combined <- mutate(prem_combined, res = as.factor(res))
+
+# Create dataset of recent goal form for each team throughout season
+prem_recent_goals <- prem_combined %>%
+  select(date, season, "team" = home, "goals_for" = hg, 
+           "goals_against" = ag) %>%
+    bind_rows(prem_combined %>%
+                select(date, season, "team" = away,
+                       "goals_for" = ag, "goals_against" = hg)) %>%
+  group_by(season, team) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(goalsfor4 = recent_form(goals_for, 4),
+         goalsagainst4 = recent_form(goals_against, 4)) %>%
+  ungroup() %>%
+  select(-goals_for, -goals_against)
+
+# Create dataset of recent goal form for each team throughout season
+prem_recent_shots <- prem_combined %>%
+  filter(!is.na(hs)) %>%
+  select(date, season, "team" = home, "shots_for" = hs, 
+           "shots_against" = as) %>%
+    bind_rows(prem_combined %>%
+                select(date, season, "team" = away,
+                       "shots_for" = as, "shots_against" = hs)) %>%
+  group_by(season, team) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(shotsfor4 = recent_form(shots_for, 4),
+         shotsagainst4 = recent_form(shots_against, 4)) %>%
+  ungroup() %>%
+  select(-shots_for, -shots_against)
+
+# Create dataset of recent goal form for each team throughout season
+prem_recent_shots_target <- prem_combined %>%
+  filter(!is.na(hst)) %>%
+  select(date, season, "team" = home, "targets_for" = hst, 
+           "targets_against" = ast) %>%
+    bind_rows(prem_combined %>%
+                select(date, season, "team" = away,
+                       "targets_for" = ast, "targets_against" = hst)) %>%
+  group_by(season, team) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(targetsfor4 = recent_form(targets_for, 4),
+         targetsagainst4 = recent_form(targets_against, 4)) %>%
+  ungroup() %>%
+  select(-targets_for, -targets_against)
+
+# Create dataset of recent goal form for each team throughout season
+prem_recent_corners <- prem_combined %>%
+  filter(!is.na(hc)) %>%
+  select(date, season, "team" = home, "corners_for" = hc, 
+           "corners_against" = ac) %>%
+    bind_rows(prem_combined %>%
+                select(date, season, "team" = away,
+                       "corners_for" = ac, "corners_against" = hc)) %>%
+  group_by(season, team) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(cornersfor4 = recent_form(corners_for, 4),
+         cornersagainst4 = recent_form(corners_against, 4)) %>%
+  ungroup() %>%
+  select(-corners_for, -corners_against)
+
+# Create dataset of recent fouls for each team throughout season
+prem_recent_fouls <- prem_combined %>%
+  filter(!is.na(hf)) %>%
+  select(date, season, "team" = home, "fouls_for" = hf, 
+           "fouls_against" = af) %>%
+    bind_rows(prem_combined %>%
+                select(date, season, "team" = away,
+                       "fouls_for" = af, "fouls_against" = hf)) %>%
+  group_by(season, team) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(foulsfor4 = recent_form(fouls_for, 4),
+         foulsagainst4 = recent_form(fouls_against, 4)) %>%
+  ungroup() %>%
+  select(-fouls_for, -fouls_against)
+
+# # Create dataset of recent offsides for each team throughout season
+# prem_recent_offsides <- prem_combined %>%
+#   filter(!is.na(ho)) %>%
+#   select(date, season, "team" = home, "offsides_for" = ho, 
+#            "offsides_against" = ao) %>%
+#     bind_rows(prem_combined %>%
+#                 select(date, season, "team" = away,
+#                        "offsides_for" = ao, "offsides_against" = ho)) %>%
+#   group_by(season, team) %>%
+#   arrange(date, .by_group = TRUE) %>%
+#   mutate(offsidesfor4 = recent_form(offsides_for, 4),
+#          offsidesagainst4 = recent_form(offsides_against, 4)) %>%
+#   ungroup() %>%
+#   select(-offsides_for, -offsides_against)
+
+# Create dataset of recent offsides for each team throughout season
+prem_recent_ycs <- prem_combined %>%
+  filter(!is.na(hy)) %>%
+  select(date, season, "team" = home, "yc_for" = hy, 
+           "yc_against" = ay) %>%
+    bind_rows(prem_combined %>%
+                select(date, season, "team" = away,
+                       "yc_for" = ay, "yc_against" = hy)) %>%
+  group_by(season, team) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(ycfor4 = recent_form(yc_for, 4),
+         ycagainst4 = recent_form(yc_against, 4)) %>%
+  ungroup() %>%
+  select(-yc_for, -yc_against)
+
+# Create dataset combining all recent measures together
+prem_recent_all <- prem_recent_goals %>%
+  inner_join(prem_recent_shots, by = c("date", "season", "team")) %>%
+  inner_join(prem_recent_shots_target, by = c("date", "season", "team")) %>%
+  inner_join(prem_recent_corners, by = c("date", "season", "team")) %>%
+  inner_join(prem_recent_fouls, by = c("date", "season", "team")) %>%
+  # inner_join(prem_recent_offsides, by = c("date", "season", "team")) %>%
+  inner_join(prem_recent_ycs, by = c("date", "season", "team"))
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

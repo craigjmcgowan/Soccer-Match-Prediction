@@ -1,7 +1,7 @@
 ---
 title: "Premier League Multiple Features Match Result"
 author: "Craig McGowan"
-date: "June 29, 2018"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
 ---
 
