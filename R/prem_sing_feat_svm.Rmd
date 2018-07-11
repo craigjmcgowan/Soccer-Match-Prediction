@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(pander)
+library(kernlab)
 
 knitr::opts_chunk$set(echo = FALSE)
 knitr::opts_knit$set(root.dir = "../")
@@ -119,8 +120,24 @@ prem_recent_goals <- prem_combined %>%
                        "goals_for" = ag, "goals_against" = hg)) %>%
   group_by(season, team) %>%
   arrange(date, .by_group = TRUE) %>%
-  mutate(goalsfor4 = recent_form(goals_for, 4),
-         goalsagainst4 = recent_form(goals_against, 4)) %>%
+  mutate(goalsfor1 = recent_form(goals_for, 1),
+         goalsfor2 = recent_form(goals_for, 2),
+         goalsfor3 = recent_form(goals_for, 3),
+         goalsfor4 = recent_form(goals_for, 4),
+         goalsfor5 = recent_form(goals_for, 5),
+         goalsfor6 = recent_form(goals_for, 6),
+         goalsfor7 = recent_form(goals_for, 7),
+         goalsfor8 = recent_form(goals_for, 8),
+         goalsfor9 = recent_form(goals_for, 9), 
+         goalsagainst1 = recent_form(goals_against, 1),
+         goalsagainst2 = recent_form(goals_against, 2),
+         goalsagainst3 = recent_form(goals_against, 3),
+         goalsagainst4 = recent_form(goals_against, 4),
+         goalsagainst5 = recent_form(goals_against, 5),
+         goalsagainst6 = recent_form(goals_against, 6),
+         goalsagainst7 = recent_form(goals_against, 7),
+         goalsagainst8 = recent_form(goals_against, 8),
+         goalsagainst9 = recent_form(goals_against, 9)) %>%
   ungroup() %>%
   select(-goals_for, -goals_against)
 
@@ -134,8 +151,24 @@ prem_recent_shots <- prem_combined %>%
                        "shots_for" = as, "shots_against" = hs)) %>%
   group_by(season, team) %>%
   arrange(date, .by_group = TRUE) %>%
-  mutate(shotsfor4 = recent_form(shots_for, 4),
-         shotsagainst4 = recent_form(shots_against, 4)) %>%
+  mutate(shotsfor1 = recent_form(shots_for, 1),
+         shotsfor2 = recent_form(shots_for, 2),
+         shotsfor3 = recent_form(shots_for, 3),
+         shotsfor4 = recent_form(shots_for, 4),
+         shotsfor5 = recent_form(shots_for, 5),
+         shotsfor6 = recent_form(shots_for, 6),
+         shotsfor7 = recent_form(shots_for, 7),
+         shotsfor8 = recent_form(shots_for, 8),
+         shotsfor9 = recent_form(shots_for, 9), 
+         shotsagainst1 = recent_form(shots_against, 1),
+         shotsagainst2 = recent_form(shots_against, 2),
+         shotsagainst3 = recent_form(shots_against, 3),
+         shotsagainst4 = recent_form(shots_against, 4),
+         shotsagainst5 = recent_form(shots_against, 5),
+         shotsagainst6 = recent_form(shots_against, 6),
+         shotsagainst7 = recent_form(shots_against, 7),
+         shotsagainst8 = recent_form(shots_against, 8),
+         shotsagainst9 = recent_form(shots_against, 9)) %>%
   ungroup() %>%
   select(-shots_for, -shots_against)
 
@@ -149,8 +182,24 @@ prem_recent_shots_target <- prem_combined %>%
                        "targets_for" = ast, "targets_against" = hst)) %>%
   group_by(season, team) %>%
   arrange(date, .by_group = TRUE) %>%
-  mutate(targetsfor4 = recent_form(targets_for, 4),
-         targetsagainst4 = recent_form(targets_against, 4)) %>%
+  mutate(targetsfor1 = recent_form(targets_for, 1),
+         targetsfor2 = recent_form(targets_for, 2),
+         targetsfor3 = recent_form(targets_for, 3),
+         targetsfor4 = recent_form(targets_for, 4),
+         targetsfor5 = recent_form(targets_for, 5),
+         targetsfor6 = recent_form(targets_for, 6),
+         targetsfor7 = recent_form(targets_for, 7),
+         targetsfor8 = recent_form(targets_for, 8),
+         targetsfor9 = recent_form(targets_for, 9), 
+         targetsagainst1 = recent_form(targets_against, 1),
+         targetsagainst2 = recent_form(targets_against, 2),
+         targetsagainst3 = recent_form(targets_against, 3),
+         targetsagainst4 = recent_form(targets_against, 4),
+         targetsagainst5 = recent_form(targets_against, 5),
+         targetsagainst6 = recent_form(targets_against, 6),
+         targetsagainst7 = recent_form(targets_against, 7),
+         targetsagainst8 = recent_form(targets_against, 8),
+         targetsagainst9 = recent_form(targets_against, 9)) %>%
   ungroup() %>%
   select(-targets_for, -targets_against)
 
@@ -164,8 +213,24 @@ prem_recent_corners <- prem_combined %>%
                        "corners_for" = ac, "corners_against" = hc)) %>%
   group_by(season, team) %>%
   arrange(date, .by_group = TRUE) %>%
-  mutate(cornersfor4 = recent_form(corners_for, 4),
-         cornersagainst4 = recent_form(corners_against, 4)) %>%
+  mutate(cornersfor1 = recent_form(corners_for, 1),
+         cornersfor2 = recent_form(corners_for, 2),
+         cornersfor3 = recent_form(corners_for, 3),
+         cornersfor4 = recent_form(corners_for, 4),
+         cornersfor5 = recent_form(corners_for, 5),
+         cornersfor6 = recent_form(corners_for, 6),
+         cornersfor7 = recent_form(corners_for, 7),
+         cornersfor8 = recent_form(corners_for, 8),
+         cornersfor9 = recent_form(corners_for, 9), 
+         cornersagainst1 = recent_form(corners_against, 1),
+         cornersagainst2 = recent_form(corners_against, 2),
+         cornersagainst3 = recent_form(corners_against, 3),
+         cornersagainst4 = recent_form(corners_against, 4),
+         cornersagainst5 = recent_form(corners_against, 5),
+         cornersagainst6 = recent_form(corners_against, 6),
+         cornersagainst7 = recent_form(corners_against, 7),
+         cornersagainst8 = recent_form(corners_against, 8),
+         cornersagainst9 = recent_form(corners_against, 9)) %>%
   ungroup() %>%
   select(-corners_for, -corners_against)
 
@@ -179,8 +244,24 @@ prem_recent_fouls <- prem_combined %>%
                        "fouls_for" = af, "fouls_against" = hf)) %>%
   group_by(season, team) %>%
   arrange(date, .by_group = TRUE) %>%
-  mutate(foulsfor4 = recent_form(fouls_for, 4),
-         foulsagainst4 = recent_form(fouls_against, 4)) %>%
+  mutate(foulsfor1 = recent_form(fouls_for, 1),
+         foulsfor2 = recent_form(fouls_for, 2),
+         foulsfor3 = recent_form(fouls_for, 3),
+         foulsfor4 = recent_form(fouls_for, 4),
+         foulsfor5 = recent_form(fouls_for, 5),
+         foulsfor6 = recent_form(fouls_for, 6),
+         foulsfor7 = recent_form(fouls_for, 7),
+         foulsfor8 = recent_form(fouls_for, 8),
+         foulsfor9 = recent_form(fouls_for, 9), 
+         foulsagainst1 = recent_form(fouls_against, 1),
+         foulsagainst2 = recent_form(fouls_against, 2),
+         foulsagainst3 = recent_form(fouls_against, 3),
+         foulsagainst4 = recent_form(fouls_against, 4),
+         foulsagainst5 = recent_form(fouls_against, 5),
+         foulsagainst6 = recent_form(fouls_against, 6),
+         foulsagainst7 = recent_form(fouls_against, 7),
+         foulsagainst8 = recent_form(fouls_against, 8),
+         foulsagainst9 = recent_form(fouls_against, 9)) %>%
   ungroup() %>%
   select(-fouls_for, -fouls_against)
 
@@ -194,8 +275,24 @@ prem_recent_fouls <- prem_combined %>%
 #                        "offsides_for" = ao, "offsides_against" = ho)) %>%
 #   group_by(season, team) %>%
 #   arrange(date, .by_group = TRUE) %>%
-#   mutate(offsidesfor4 = recent_form(offsides_for, 4),
-#          offsidesagainst4 = recent_form(offsides_against, 4)) %>%
+#   mutate(offsidesfor1 = recent_form(offsides_for, 1),
+#          offsidesfor2 = recent_form(offsides_for, 2),
+#          offsidesfor3 = recent_form(offsides_for, 3),
+#          offsidesfor4 = recent_form(offsides_for, 4),
+#          offsidesfor5 = recent_form(offsides_for, 5),
+#          offsidesfor6 = recent_form(offsides_for, 6),
+#          offsidesfor7 = recent_form(offsides_for, 7),
+#          offsidesfor8 = recent_form(offsides_for, 8),
+#          offsidesfor9 = recent_form(offsides_for, 9), 
+#          offsidesagainst1 = recent_form(offsides_against, 1),
+#          offsidesagainst2 = recent_form(offsides_against, 2),
+#          offsidesagainst3 = recent_form(offsides_against, 3),
+#          offsidesagainst4 = recent_form(offsides_against, 4),
+#          offsidesagainst5 = recent_form(offsides_against, 5),
+#          offsidesagainst6 = recent_form(offsides_against, 6),
+#          offsidesagainst7 = recent_form(offsides_against, 7),
+#          offsidesagainst8 = recent_form(offsides_against, 8),
+#          offsidesagainst9 = recent_form(offsides_against, 9)) %>%
 #   ungroup() %>%
 #   select(-offsides_for, -offsides_against)
 
@@ -209,38 +306,92 @@ prem_recent_ycs <- prem_combined %>%
                        "yc_for" = ay, "yc_against" = hy)) %>%
   group_by(season, team) %>%
   arrange(date, .by_group = TRUE) %>%
-  mutate(ycfor4 = recent_form(yc_for, 4),
-         ycagainst4 = recent_form(yc_against, 4)) %>%
+  mutate(ycfor1 = recent_form(yc_for, 1),
+         ycfor2 = recent_form(yc_for, 2),
+         ycfor3 = recent_form(yc_for, 3),
+         ycfor4 = recent_form(yc_for, 4),
+         ycfor5 = recent_form(yc_for, 5),
+         ycfor6 = recent_form(yc_for, 6),
+         ycfor7 = recent_form(yc_for, 7),
+         ycfor8 = recent_form(yc_for, 8),
+         ycfor9 = recent_form(yc_for, 9), 
+         ycagainst1 = recent_form(yc_against, 1),
+         ycagainst2 = recent_form(yc_against, 2),
+         ycagainst3 = recent_form(yc_against, 3),
+         ycagainst4 = recent_form(yc_against, 4),
+         ycagainst5 = recent_form(yc_against, 5),
+         ycagainst6 = recent_form(yc_against, 6),
+         ycagainst7 = recent_form(yc_against, 7),
+         ycagainst8 = recent_form(yc_against, 8),
+         ycagainst9 = recent_form(yc_against, 9)) %>%
   ungroup() %>%
   select(-yc_for, -yc_against)
 
-# Create dataset combining all recent measures together
-prem_recent_all <- prem_recent_goals %>%
-  inner_join(prem_recent_shots, by = c("date", "season", "team")) %>%
-  inner_join(prem_recent_shots_target, by = c("date", "season", "team")) %>%
-  inner_join(prem_recent_corners, by = c("date", "season", "team")) %>%
-  inner_join(prem_recent_fouls, by = c("date", "season", "team")) %>%
-  # inner_join(prem_recent_offsides, by = c("date", "season", "team")) %>%
-  inner_join(prem_recent_ycs, by = c("date", "season", "team"))
-
 ```
 
-## R Markdown
+## Various timelines of recent form - single measure
+Using logistic regression, look at what timeline of recent goal scoring form best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
+```{r recent goals form}
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+# Combine calculated form with observed results
+  model_df <- prem_combined %>%
+    select(date, season, home, away, res) %>%
+    # Join home team recent form
+    left_join(df %>%
+                rename_at(vars(matches("[0-9]")),
+                          function(x) paste0("home_", str_extract(x, "[a-z][0-9]"))), 
+              by = c("date", "season", "home" = "team")) %>%
+    # Join away team recent form
+    left_join(df %>%
+                rename_at(vars(matches("[0-9]")),
+                          function(x) paste0("away_", str_extract(x, "[a-z][0-9]"))), 
+              by = c("date", "season", "away" = "team")) %>%
+    # Remove weeks without at least 1 week sum total - will also remove seasons w/o data
+    filter(!is.na(home_r1))
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+  single_lag_results <- list()
+  for (i in 1:9) {
+    season_results <- list()
+    for(this_season in unique(model_df$season)) {
+      train <- model_df %>%
+        select(res, season, matches(paste(i))) %>%
+        na.omit() %>%
+        filter(season != this_season)
+      test <- model_df %>%
+        select(res, season, matches(paste(i))) %>%
+        na.omit() %>%
+        filter(season == this_season)
+      
+      svm_fit <-ksvm(formula(paste0("res ~ home_r", i, " + home_t", i,
+                                    " + away_r", i, " + away_t", i)),
+                     data = train,
+                     kernel="vanilladot")
 
-```{r cars}
-summary(cars)
+      # Predicted output
+      season_results[[this_season]] <- train %>%
+        mutate(pred_result = predict(svm_fit, .)) %>%
+        summarize(svm_train_per = sum(pred_result == res) / n()) %>%
+        # Test error
+        cbind(test %>%
+          mutate(pred_result = predict(svm_fit, .)) %>%
+          summarize(svm_test_per = sum(pred_result == res) / n())
+        )
+      }
+    # Take average of all cross-validated measures and save
+    single_lag_results[[i]] <- bind_rows(season_results) %>%
+      summarize_all(mean)
+  }
+
+  # Summarize results
+  bind_rows(single_lag_results, .id = "Num Matches") %>%
+    select(`Num Matches`, ` SVM Train %` = svm_train_per,
+           `SVM Test %` = svm_test_per)
+
+
+
+sing_goals_result <- single_recent_model(prem_recent_goals) 
+
+sing_goals_result %>%
+  pander(split.cells = 15)
+
 ```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
