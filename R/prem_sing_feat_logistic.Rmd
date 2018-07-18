@@ -187,8 +187,15 @@ multi_recent_model <- function(df) {
 ```{r read in data and set up summary datasets}
 # Read in data
 load("Data/prem.Rdata")
+load("Data/prem_adjusted.Rdata")
 
-prem_combined <- mutate(prem_combined, res = as.factor(res))
+prem_combined <- mutate(prem_league, res = as.factor(res))
+prem_adjust_goals <- left_join(
+  prem_adjust_goals,
+  select(prem_combined, date, home, away, res),
+  by = c("date", "home", "away")
+) %>%
+  mutate(season = as.character(season))
 
 # Create dataset of recent goal form for each team throughout season
 prem_recent_goals <- prem_combined %>%
@@ -406,10 +413,97 @@ prem_recent_ycs <- prem_combined %>%
   ungroup() %>%
   select(-yc_for, -yc_against)
 
+# Create dataset of team off/def ratings
+prem_recent_adj_goals <- prem_adjust_goals %>%
+  select(date, season, "team" = home, "goals_for" = home_ags, 
+           "goals_against" = home_aga) %>%
+    bind_rows(prem_adjust_goals %>%
+                select(date, season, "team" = away,
+                       "goals_for" = away_ags, "goals_against" = away_aga)) %>%
+  # Take out 93/94 season as that is burn-in for off/def ratings
+  filter(season != "9394") %>%
+  group_by(season, team) %>%
+  arrange(date, .by_group = TRUE) %>%
+  mutate(goalsfor1 = recent_form(goals_for, 1),
+         goalsfor2 = recent_form(goals_for, 2),
+         goalsfor3 = recent_form(goals_for, 3),
+         goalsfor4 = recent_form(goals_for, 4),
+         goalsfor5 = recent_form(goals_for, 5),
+         goalsfor6 = recent_form(goals_for, 6),
+         goalsfor7 = recent_form(goals_for, 7),
+         goalsfor8 = recent_form(goals_for, 8),
+         goalsfor9 = recent_form(goals_for, 9), 
+         goalsagainst1 = recent_form(goals_against, 1),
+         goalsagainst2 = recent_form(goals_against, 2),
+         goalsagainst3 = recent_form(goals_against, 3),
+         goalsagainst4 = recent_form(goals_against, 4),
+         goalsagainst5 = recent_form(goals_against, 5),
+         goalsagainst6 = recent_form(goals_against, 6),
+         goalsagainst7 = recent_form(goals_against, 7),
+         goalsagainst8 = recent_form(goals_against, 8),
+         goalsagainst9 = recent_form(goals_against, 9)) %>%
+  ungroup() %>%
+  select(-goals_for, -goals_against)
+
 ```
 
 
-## Various timelines of recent form - single measure
+## SPI-based offensive and defensive ratings
+```{r}
+prem_adjust_goals_mod <- filter(prem_adjust_goals, season != "9394")
+
+rating_result <- tibble()
+for(this_season in unique(prem_adjust_goals_mod$season)) {
+  train <- filter(prem_adjust_goals_mod, season != this_season)
+  test <- filter(prem_adjust_goals_mod, season == this_season)
+  
+  home_reg <- glm(out ~ h_off + h_def + a_off + a_def,
+                  data = mutate(train, out = (res == "H")),
+                  family = "binomial")
+  away_reg <- glm(out ~ h_off + h_def + a_off + a_def,
+                  data = mutate(train, out = (res == "A")),
+                  family = "binomial")
+  draw_reg <- glm(out ~ h_off + h_def + a_off + a_def,
+                  data = mutate(train, out = (res == "D")),
+                  family = "binomial")
+  
+  # Predicted output
+  rating_result <- train %>%
+    mutate(pred_home = predict(home_reg, ., type = "response"),
+           pred_away = predict(away_reg, ., type = "response"),
+           pred_draw = predict(draw_reg, ., type = "response"),
+           log_pred_result = case_when(
+             pred_home > pred_away & pred_home > pred_draw ~ "H",
+             pred_away > pred_home & pred_away > pred_draw ~ "A",
+             pred_draw > pred_home & pred_draw > pred_home ~ "D",
+             TRUE ~ NA_character_
+           )) %>%
+    filter(!is.na(log_pred_result)) %>%
+    summarize(log_train_per = sum(log_pred_result == res) / n()) %>%
+    # Test error
+    cbind(test %>%
+      mutate(pred_home = predict(home_reg, ., type = "response"),
+             pred_away = predict(away_reg, ., type = "response"),
+             pred_draw = predict(draw_reg, ., type = "response"),
+             log_pred_result = case_when(
+               pred_home > pred_away & pred_home > pred_draw ~ "H",
+               pred_away > pred_home & pred_away > pred_draw ~ "A",
+               pred_draw > pred_home & pred_draw > pred_home ~ "D",
+               TRUE ~ NA_character_
+             )) %>%
+      filter(!is.na(log_pred_result)) %>%
+      summarize(log_test_per = sum(log_pred_result == res) / n())
+    ) %>%
+    bind_rows(rating_result)
+}
+
+rating_result %>%
+  summarize_all(mean) %>%
+  pander(split.cells = 15)
+```
+
+
+## Various timelines of recent goals - single measure
 Using logistic regression, look at what timeline of recent goal scoring form best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
 ```{r recent goals form}
 
@@ -431,6 +525,28 @@ mult_goals_result %>%
   pander(split.cells = 15)
 ```
 
+
+## Various timelines of recent adjusted goals - single measure
+Using logistic regression, look at what timeline of recent adjusted goal scoring form best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
+```{r recent adj goals form, warning = FALSE}
+
+sing_adj_goals_result <- single_recent_model(prem_recent_adj_goals) 
+
+sing_adj_goals_result %>%
+  pander(split.cells = 15)
+
+```
+
+Taking into account additional games when determining recent form improves model results, which is unsurprising. Test and training set accuracy are very similar suggesting that the models are not overfitting the data and overall accuracy is moderate, suggesting that adding additional features to the model could result in improved model performance.
+
+## Various timelines of adjusted recent goals - cumulative measures
+Using logistic regression, this section evaluates what timeline of recent adjusted goals best predicts results, taking into account all shorter measures of recent form. For example, the model of 5-match recent form also includes measures of 3-match and 4-match recent form.
+```{r multiple adj lags same model, warning = FALSE}
+mult_adj_goals_result <- multi_recent_model(prem_recent_adj_goals) 
+
+mult_adj_goals_result %>%
+  pander(split.cells = 15)
+```
 
 # Recent shots
 Using logistic regression, look at what timeline of recent shots attempted best predicts game outcomes using leave-one-season out cross validation and evaluating models on percentage of matches accurately predicted.
