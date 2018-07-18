@@ -56,7 +56,10 @@ prem_league <- bind_rows(prem, .id = "season") %>%
   mutate(date = as.Date(date, "%d/%m/%y"),
          # Fix messed up dates in 2002-2003 season
          date = case_when(
-           season == "0203" & year(date) == 2020 ~ ymd(format(date, "2002-%m-%d")),
+           season == "0203" & year(date) == 2020 & 
+             month(date) %in% 8:12 ~ ymd(format(date, "2002-%m-%d")),
+           season == "0203" & year(date) == 2020 & 
+             month(date) %in% 1:7 ~ ymd(format(date, "2003-%m-%d")),
            TRUE ~ date
          )) %>%
   filter(!is.na(date))
@@ -68,7 +71,10 @@ championship <- bind_rows(champ, .id = "season") %>%
   mutate(date = as.Date(date, "%d/%m/%y"),
          # Fix messed up dates in 2002-2003 season
          date = case_when(
-           season == "0203" & year(date) == 2020 ~ ymd(format(date, "2002-%m-%d")),
+           season == "0203" & year(date) == 2020 & 
+             month(date) %in% 8:12 ~ ymd(format(date, "2002-%m-%d")),
+           season == "0203" & year(date) == 2020 & 
+             month(date) %in% 1:7 ~ ymd(format(date, "2003-%m-%d")),
            TRUE ~ date
          )) %>%
   filter(!is.na(date))
@@ -80,7 +86,10 @@ league_one <- bind_rows(league1, .id = "season") %>%
   mutate(date = as.Date(date, "%d/%m/%y"),
          # Fix messed up dates in 2002-2003 season
          date = case_when(
-           season == "0203" & year(date) == 2020 ~ ymd(format(date, "2002-%m-%d")),
+           season == "0203" & year(date) == 2020 & 
+             month(date) %in% 8:12 ~ ymd(format(date, "2002-%m-%d")),
+           season == "0203" & year(date) == 2020 & 
+             month(date) %in% 1:7 ~ ymd(format(date, "2003-%m-%d")),
            TRUE ~ date
          )) %>%
   filter(!is.na(date))
@@ -92,7 +101,10 @@ league_two <- bind_rows(league2, .id = "season") %>%
   mutate(date = as.Date(date, "%d/%m/%y"),
          # Fix messed up dates in 2002-2003 season
          date = case_when(
-           season == "0203" & year(date) == 2020 ~ ymd(format(date, "2002-%m-%d")),
+           season == "0203" & year(date) == 2020 & 
+             month(date) %in% 8:12 ~ ymd(format(date, "2002-%m-%d")),
+           season == "0203" & year(date) == 2020 & 
+             month(date) %in% 1:7 ~ ymd(format(date, "2003-%m-%d")),
            TRUE ~ date
          )) %>%
   filter(!is.na(date))
