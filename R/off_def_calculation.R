@@ -118,7 +118,7 @@ load("Data/prem.Rdata")
 
 # Initial data set up
 prem_reduce <- prem_league %>%
-  select(season, date, home, away, hg, ag)
+  select(season, date, home, away, hg, ag, res)
 
 # Calculate season averages to use as initial starting values
 season_averages <- prem_reduce %>%
