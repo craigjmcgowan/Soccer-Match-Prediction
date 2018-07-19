@@ -1,0 +1,231 @@
+---
+title: "Premier League Match Prediction - Poisson Model of Goals Scored"
+author: "Craig McGowan"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(pander)
+library(zoo)
+
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_knit$set(root.dir = "../")
+```
+
+```{r helper functions}
+
+# Calculate recent form for a particular stat
+recent_form <- function(var, num_weeks, type) {
+
+  if (type == "sum") {
+    lag(zoo::rollsum(var, num_weeks, na.pad = TRUE, align = "right"), 1)
+  }
+  if (type == "mean") {
+    lag(zoo::rollmean(var, num_weeks, na.pad = TRUE, align = "right"), 1)
+  }
+}
+
+# Fit Poisson model and cross-validate
+poisson_model <- function(x, features) { 
+ 
+  # Remove any missing values
+  x <- x %>%
+    select(season, date, hg, ag, res, one_of(features)) %>%
+    na.omit()
+  
+  season_results <- list()
+  for (this_season in unique(x$season)[1]) {
+    train <- filter(x, season != this_season)
+    test <- filter(x, season == this_season)
+ 
+    home_mod <- glm(formula(paste("hg ~ ", paste0(features, collapse = " + "))),
+                    family = "poisson", data = train)
+    away_mod <- glm(formula(paste("ag ~ ", paste0(features, collapse = " + "))),
+                    family = "poisson", data = train)
+    
+    train$home_exp_goals <- predict(home_mod, newdata = train, type = "response")
+    train$away_exp_goals <- predict(away_mod, newdata = train, type = "response")
+    
+    test$home_exp_goals <- predict(home_mod, newdata = test, type = "response")
+    test$away_exp_goals <- predict(away_mod, newdata = test, type = "response")
+    
+    season_results[[this_season]] <- train %>%
+      rowwise() %>%
+      mutate(pred_result = pred_result(home_exp_goals, away_exp_goals)) %>%
+      ungroup() %>%
+      summarize(train_result = mean(pred_result == res)) %>%
+      cbind(test %>%
+        rowwise() %>%
+        mutate(pred_result = pred_result(home_exp_goals, away_exp_goals)) %>%
+        ungroup() %>%
+        summarize(test_result = mean(pred_result == res)))
+  }
+  
+  # Output average of cross-validated results
+  bind_rows(season_results) %>%
+    summarize_all(mean) %>%
+    mutate(features = paste0(features, collapse = ", "))
+}
+
+# Create matrix of probabilities of goals and determine predicted result
+pred_result <- function(team_exp_goals, opp_exp_goals) {
+  pred_matrix <- matrix(nrow = 6, ncol = 6)
+  
+  for (i in 1:6) {
+    for (j in 1:6) {
+      pred_matrix[i, j] = dpois(i-1, team_exp_goals) * 
+        dpois(j-1, opp_exp_goals)
+    }
+  }
+  prob_draw <- sum(diag(pred_matrix))
+  
+  prob_home <- sum(pred_matrix[lower.tri(pred_matrix)])
+  
+  prob_away <- sum(pred_matrix[upper.tri(pred_matrix)])
+  
+  case_when(
+    prob_draw > prob_home & prob_draw > prob_away ~ "D",
+    prob_home > prob_draw & prob_home > prob_away ~ "H",
+    prob_away > prob_home & prob_away > prob_draw ~ "A",
+    TRUE ~ NA_character_
+  )
+}
+```
+
+
+```{r data setup}
+load("Data/prem.Rdata")
+load("Data/prem_adjusted.Rdata")
+
+prem_league <- prem_league %>%
+  left_join(select(prem_adjust_goals, -season, -hg, -ag, -res),
+            by = c("date", "home", "away"))
+
+# Dataset of team characteristics
+team_char <- prem_league %>%
+  select(season, date, team = home, goal_for = hg, 
+         goal_against = ag, shot_for = hs, shot_against = as,
+         shot_target_for = hst, shot_target_against = ast,
+         ags = home_ags, aga = home_aga) %>%
+  # Add location-specific match number
+  group_by(season, team) %>%
+  arrange(date) %>%
+  mutate(location = "home",
+         loc_match_number = row_number()) %>%
+  ungroup() %>%
+  bind_rows(prem_league %>%
+              select(season, date, team = away, goal_for = ag, 
+                     goal_against = hg, shot_for = as, shot_against = hs,
+                     shot_target_for = ast, shot_target_against = hst,
+                     ags = away_ags, aga = away_aga) %>%
+              # Add location-specific match number
+              group_by(season, team) %>%
+              arrange(date) %>%
+              mutate(location = "away",
+                     loc_match_number = row_number()) %>%
+              ungroup()) %>%
+  # Add match week
+  group_by(season, team) %>%
+  arrange(date) %>%
+  mutate(match_week = row_number()) %>%
+  ungroup() %>%
+  # Calculate season summary stats
+  group_by(season, team, location) %>%
+  mutate(ssn_team_avg_gf = mean(goal_for),
+         ssn_team_avg_ga = mean(goal_against)) %>%
+  ungroup() %>%
+  # Calculate long-term rolling averages of goals and shots
+  # 20 match rolling mean across seasons, location specific
+  group_by(team, location) %>%
+  mutate(roll20_gf = rollmean(lag(goal_for, 1), 
+                                   20, align = "right", fill = NA),
+         roll20_ga = rollmean(lag(goal_against, 1),
+                                   20, align = "right", fill = NA)) %>%
+  ungroup() %>%
+  # 20 match rolling mean of shots allowed across seasons, location specific
+  group_by(team, location) %>%
+  mutate(roll20_sf = rollmean(lag(shot_for, 1), 
+                                   20, align = "right", fill = NA),
+         roll20_sa = rollmean(lag(shot_against, 1),
+                                   20, align = "right", fill = NA)) %>%
+  ungroup() %>%
+  # Recent 5 match in-season form  - goals
+  group_by(season, team, location) %>%
+  mutate(recent5_gf = lag(zoo::rollsum(goal_for, 5, 
+                                            na.pad = TRUE, align = "right"), 1),
+         recent5_ga = lag(zoo::rollsum(goal_against, 5, 
+                                            na.pad = TRUE, align = "right"), 1)) %>%
+  ungroup() %>%
+  # Recent 5 match in-season form  - adjusted goals
+  group_by(season, team) %>%
+  mutate(recent5_ags = lag(zoo::rollsum(ags, 5,
+                                        na.pad = TRUE, align = "right"), 1),
+         recent5_aga = lag(zoo::rollsum(aga, 5,
+                                        na.pad = TRUE, align = "right"), 1)) %>%
+  ungroup() %>%
+  # Recent 5 match in-season form  - shots
+  group_by(season, team, location) %>%
+  mutate(recent5_sf = lag(zoo::rollsum(shot_for, 5, 
+                                            na.pad = TRUE, align = "right"), 1),
+         recent5_sa = lag(zoo::rollsum(shot_against, 5, 
+                                            na.pad = TRUE, align = "right"), 1)) %>%
+  ungroup()
+
+
+# Bind team characteristics onto match outcomes
+model_df <- prem_adjust_goals %>%
+  left_join(team_char %>%
+              filter(location == "home") %>%
+              select(date, home = team, home_loc_match_number = loc_match_number,
+                     home_match_number = match_week, home_roll20_gf = roll20_gf,
+                     home_roll20_ga = roll20_ga, home_roll20_sf = roll20_sf,
+                     home_roll20_sa = roll20_sa, home_recent5_gf = recent5_gf,
+                     home_recent5_ga = recent5_ga, home_recent5_sf = recent5_sf,
+                     home_recent5_sa = recent5_sa, home_recent5_aga = recent5_aga,
+                     home_recent5_ags = recent5_ags),
+            by = c("date", "home")) %>%
+  left_join(team_char %>%
+              filter(location == "away") %>%
+              select(date, away = team, away_loc_match_number = loc_match_number,
+                     away_match_number = match_week, away_roll20_gf = roll20_gf,
+                     away_roll20_ga = roll20_ga, away_roll20_sf = roll20_sf,
+                     away_roll20_sa = roll20_sa, away_recent5_gf = recent5_gf,
+                     away_recent5_ga = recent5_ga, away_recent5_sf = recent5_sf,
+                     away_recent5_sa = recent5_sa, away_recent5_aga = recent5_aga,
+                     away_recent5_ags = recent5_ags),
+            by = c("date", "away"))
+  
+```
+
+Outcome - goals scored
+Features - home/away, measure of opponent defensive strength, measure of team strength,
+  recent form (goals, shots),
+
+
+# Model 1
+Home and away offensive and defensive ratings
+```{r mod 1}
+poisson_model(x = model_df %>% filter(season != "9394"), 
+              features = c("h_off", "h_def", "a_off", "a_def")) %>%
+  pander()
+```
+
+# Model 2
+5 match rolling mean goals scored (location specific), 5 match rolling mean opponent goals allowed (location specific)
+```{r mod 2}
+poisson_model(x = model_df ,
+              features = c("home_recent5_gf", "home_recent5_ga",
+                           "away_recent5_gf", "away_recent5_ga")) %>%
+  pander()
+```
+
+# Model 3
+5 match rolling mean adjusted goals scored and adjusted goals allowed.
+```{r mod 3}
+poisson_model(x = model_df ,
+              features = c("home_recent5_ags", "home_recent5_aga",
+                           "away_recent5_ags", "away_recent5_aga")) %>%
+  pander()
+```
